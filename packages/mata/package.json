@@ -1,0 +1,16 @@
+{
+  "name": "nav-machine",
+  "version": "0.0.1",
+  "description": "A finite state machine for application flow",
+  "main": "index.js",
+  "scripts": {
+    "test": "tsc && jest"
+  },
+  "author": "daniel@danielespeset.com",
+  "license": "Copyright 2017",
+  "devDependencies": {
+    "@types/jest": "^19.2.3",
+    "jest": "^20.0.0"
+  },
+  "private": true
+}
