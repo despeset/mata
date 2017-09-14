@@ -1,5 +1,5 @@
 {
-  "name": "nav-machine",
+  "name": "mech",
   "version": "0.0.1",
   "description": "A finite state machine for application flow",
   "main": "index.js",

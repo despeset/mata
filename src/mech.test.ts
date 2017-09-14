@@ -1,7 +1,5 @@
-import Nav from './nav-machine';
+import Mech from './mech';
 import { toMermaid, toDot } from './visualizers';
-
-const Mech = Nav;
 
 describe("nav-machine", () => {
     it("Initialization", () => {
@@ -15,7 +13,7 @@ describe("nav-machine", () => {
             config: {
                 init: (states) => states.empty
             },
-            states: {
+            machine: {
                 [Mech.FromAnyState]: {
                     running: (s) => s.tap > 0,                    
                 },
@@ -101,11 +99,11 @@ describe("nav-machine", () => {
             signOut: false
         };
     
-        const nav = new Nav<State>({
+        const nav = new Mech<State>({
             config: {
                 init: (states) => states.welcome
             },
-            states: {
+            machine: {
                 welcome: {
                     tutorial: (s) => s.user.gamesPlayed < 1,
                     game: (s) => s.user.gamesPlayed > 0,
@@ -114,13 +112,13 @@ describe("nav-machine", () => {
                     game: (s) => s.user.gamesPlayed > 0 && !s.forceTutorial,
                 },
                 game: {
-                    stageOne: Nav.Continue,
+                    stageOne: Mech.Continue,
                 },
                 stageOne: {
-                    stageTwo: Nav.Continue,
+                    stageTwo: Mech.Continue,
                 },
                 stageTwo: {
-                    stageThree: Nav.Continue,
+                    stageThree: Mech.Continue,
                 },
                 stageThree: {
                     view: (s) => s.game.finished,
@@ -131,7 +129,7 @@ describe("nav-machine", () => {
                 gameOver: {
                     game: (s) => !s.game.finished && !s.game.dead,
                 },
-                [Nav.FromAnyState]: {
+                [Mech.FromAnyState]: {
                     tutorial: (s) => s.forceTutorial,
                     signOut: (s) => s.signOut,
                     gameOver: (s) => s.game.dead,
@@ -172,7 +170,7 @@ describe("nav-machine", () => {
         nav.next(state);
         expect(nav.state).toBe(nav.states.game);
 
-        console.log(toDot(nav));
+        console.log(toDot(nav,  { collapseWildcards: true }));
         console.log(toMermaid(nav, { collapseWildcards: true }));
     });
 })

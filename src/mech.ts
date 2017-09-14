@@ -1,5 +1,5 @@
 type TransitionCondition<T> = (s: T) => boolean;
-type NavigatorStates<T> = { [from: string]: { [to: string]: TransitionCondition<T> }};
+type MachineSchema<T> = { [from: string]: { [to: string]: TransitionCondition<T> }};
 
 type Listener<T> = (from?: string, to?: string, input?: T) => void;
 type Unsubscribe = () => void;
@@ -12,14 +12,14 @@ interface Configuration {
 
 interface Initializer<T> {
     config: Configuration,
-    states: NavigatorStates<T>
+    machine: MachineSchema<T>
 };
 
-export default class Nav<T> {
+export default class Mech<T> {
     config: Configuration;
     state: string;
     states: StateConstants;
-    machine: NavigatorStates<T> = {};
+    machine: MachineSchema<T> = {};
     private subscribers: Listener<T>[] = [];
 
     static FromAnyState = Symbol("Represents any valid state");
@@ -27,10 +27,9 @@ export default class Nav<T> {
     static Continue = () => true;
 
     constructor (initializer: Initializer<T>) {
-        const states = initializer.states;
         this.config = initializer.config;
-        this.machine = states;
-        this.states = Object.keys(states).reduce((lookup, state) => {
+        this.machine = initializer.machine;
+        this.states = Object.keys(initializer.machine).reduce((lookup, state) => {
             lookup[state] = state;
             return lookup;
         }, <StateConstants>{});
@@ -49,8 +48,8 @@ export default class Nav<T> {
 
     next (input: T): string {
         const from = this.state.toString();
-        for (let to in this.machine[Nav.FromAnyState]) {
-            if (this.machine[Nav.FromAnyState][to](input)) {
+        for (let to in this.machine[Mech.FromAnyState]) {
+            if (this.machine[Mech.FromAnyState][to](input)) {
                 return this.to(to, input);
             }
         }
