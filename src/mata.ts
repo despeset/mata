@@ -1,30 +1,36 @@
-type TransitionCondition<T> = (s: T) => boolean;
-type MachineSchema<T> = { [from: string]: { [to: string]: TransitionCondition<T> }};
+export type State = string;
+export type ValidStates = { [state: string]: State };
+export type Condition<T> = (input: T) => boolean;
+export type MachineSchema<T> = { [from: string]: { [to: string]: Condition<T> }};
 
-type Listener<T> = (from?: string, to?: string, input?: T) => void;
-type Unsubscribe = () => void;
-type State = string;
-type StateConstants = { [state: string]: State };
+export type Listener<T> = (event: TransitionEvent<T>) => void;
+export type Unsubscribe = () => void;
 
-interface Configuration {
-    init: (states: StateConstants) => State;
+export interface Configuration {
+    init: (states: ValidStates) => State;
 }
 
-interface Initializer<T> {
+export interface Initializer<T> {
     config: Configuration,
     machine: MachineSchema<T>
-};
+}
 
-export default class Mech<T> {
+export interface TransitionEvent<T> {
+    from: string
+    to: string
+    input?: T
+}
+
+export const FromAnyState = Symbol("Represents any valid state");
+export const Config = Symbol("Stores configuration data");
+export const Continue = () => true;
+
+export class Machine<T> {
     config: Configuration;
     state: string;
-    states: StateConstants;
+    states: ValidStates;
     machine: MachineSchema<T> = {};
     private subscribers: Listener<T>[] = [];
-
-    static FromAnyState = Symbol("Represents any valid state");
-    static Config = Symbol("Stores configuration data");
-    static Continue = () => true;
 
     constructor (initializer: Initializer<T>) {
         this.config = initializer.config;
@@ -32,30 +38,30 @@ export default class Mech<T> {
         this.states = Object.keys(initializer.machine).reduce((lookup, state) => {
             lookup[state] = state;
             return lookup;
-        }, <StateConstants>{});
+        }, <ValidStates>{});
         this.state = this.config.init(this.states);
         if (!this.states[this.state]) {
             throw new Error(`Invalid initial state: "${this.state}" - known states: [${Object.keys(this.states)}]`);
         }
     }
 
-    to (state: string, input?: T): string {
-        const last = this.state;
+    transition (state: string, input?: T): string {
+        const from = this.state, to = state;
         this.state = state;
-        this.subscribers.forEach(s => s(last, state, input));        
+        this.subscribers.forEach(s => s({from, to, input}));      
         return state;
     }
 
     next (input: T): string {
         const from = this.state.toString();
-        for (let to in this.machine[Mech.FromAnyState]) {
-            if (this.machine[Mech.FromAnyState][to](input)) {
-                return this.to(to, input);
+        for (let to in this.machine[FromAnyState]) {
+            if (this.machine[FromAnyState][to](input)) {
+                return this.transition(to, input);
             }
         }
         for (let to in this.machine[from]) {
             if (this.machine[from][to](input)) {
-                return this.to(to, input);
+                return this.transition(to, input);
             }
         }
         return this.state;

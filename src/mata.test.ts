@@ -1,4 +1,4 @@
-import Mech from './mech';
+import * as mata from './mata';
 import { toMermaid, toDot } from './visualizers';
 
 describe("nav-machine", () => {
@@ -9,12 +9,13 @@ describe("nav-machine", () => {
             capacity: number
             drainable: boolean
         };
-        const sink = new Mech<SinkControls>({
+        
+        const sink = new mata.Machine<SinkControls>({
             config: {
                 init: (states) => states.empty
             },
             machine: {
-                [Mech.FromAnyState]: {
+                [mata.FromAnyState]: {
                     running: (s) => s.tap > 0,                    
                 },
                 empty: {},
@@ -26,7 +27,7 @@ describe("nav-machine", () => {
                     draining: (s) => s.drainable,
                 },
                 draining: {
-                    empty: Mech.Continue
+                    empty: mata.Continue
                 },
             }
         });
@@ -99,7 +100,7 @@ describe("nav-machine", () => {
             signOut: false
         };
     
-        const nav = new Mech<State>({
+        const nav = new mata.Machine<State>({
             config: {
                 init: (states) => states.welcome
             },
@@ -112,13 +113,13 @@ describe("nav-machine", () => {
                     game: (s) => s.user.gamesPlayed > 0 && !s.forceTutorial,
                 },
                 game: {
-                    stageOne: Mech.Continue,
+                    stageOne: mata.Continue,
                 },
                 stageOne: {
-                    stageTwo: Mech.Continue,
+                    stageTwo: mata.Continue,
                 },
                 stageTwo: {
-                    stageThree: Mech.Continue,
+                    stageThree: mata.Continue,
                 },
                 stageThree: {
                     view: (s) => s.game.finished,
@@ -129,7 +130,7 @@ describe("nav-machine", () => {
                 gameOver: {
                     game: (s) => !s.game.finished && !s.game.dead,
                 },
-                [Mech.FromAnyState]: {
+                [mata.FromAnyState]: {
                     tutorial: (s) => s.forceTutorial,
                     signOut: (s) => s.signOut,
                     gameOver: (s) => s.game.dead,
@@ -160,7 +161,7 @@ describe("nav-machine", () => {
         expect(nav.state).toBe(nav.states.gameOver);
         state.game.dead = false;
         
-        nav.to('welcome');
+        nav.transition('welcome');
         nav.next(state);
         expect(nav.state).toBe(nav.states.game);
         state.forceTutorial = true;
