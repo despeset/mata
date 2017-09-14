@@ -126,8 +126,8 @@ state machine from this readme looks like:
 
 `toMermaid`:
 
-![Diagram visualizing the example state machine](docs/images/mermaid.svg?raw=true "Mermaid Diagram")
+![Diagram visualizing the example state machine](./docs/images/mermaid.png "Mermaid Diagram")
 
 `toDot`:
 
-![Diagram visualizing the example state machine](docs/images/graphviz.svg?raw=true "GraphViz (Dot) Diagram")
+![Diagram visualizing the example state machine](./docs/images/graphviz.svg "GraphViz (Dot) Diagram")
