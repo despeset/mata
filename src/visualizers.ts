@@ -17,14 +17,14 @@ export function toMermaid(nav: mata.Machine<any>, options: Config = defaultConfi
 	let edges = flatten<string>(Object.keys(nav.machine).map(from => {
 		return Object.keys(nav.machine[from]).map(to => {
 			const condition = nav.machine[from][to];
-			return `${from} --"${condition === Mata.Continue ? ' ' : condition.toString()}"--> ${to}`;
+			return `${from} --"${condition === mata.Continue ? ' ' : condition.toString()}"--> ${to}`;
 		});
-	})).concat(flatten<string>(Object.keys(nav.machine[Mata.FromAnyState]).map(to => {
+	})).concat(flatten<string>(Object.keys(nav.machine[mata.FromAnyState] || {}).map(to => {
 		if (config.collapseWildcards) {
-			return [`=((*)) --"${nav.machine[Mata.FromAnyState][to].toString()}"--> ${to}`];
+			return [`=((*)) --"${nav.machine[mata.FromAnyState][to].toString()}"--> ${to}`];
 		}
 		return Object.keys(nav.states).map(from => {
-			return from !== to ? `${from} -."${nav.machine[Mata.FromAnyState][to].toString()}".-> ${to}` : '';
+			return from !== to ? `${from} -."${nav.machine[mata.FromAnyState][to].toString()}".-> ${to}` : '';
 		});
 	})));
 	return `graph LR
@@ -38,7 +38,7 @@ export function toDot(nav: mata.Machine<any>, options: Config = defaultConfig) {
 		return Object.keys(nav.machine[from]).map(to => {
 			return `${from} -> ${to};`;
 		});
-	})).concat(flatten<string>(Object.keys(nav.machine[Mata.FromAnyState]).map(to => {
+	})).concat(flatten<string>(Object.keys(nav.machine[mata.FromAnyState] || {}).map(to => {
 		if (config.collapseWildcards) {
 			return [`"*" -> ${to}`];
 		}
