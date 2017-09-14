@@ -1,7 +1,7 @@
 {
-  "name": "nav-machine",
+  "name": "mata",
   "version": "0.0.1",
-  "description": "A finite state machine for application flow",
+  "description": "Input-driven finite state automata",
   "main": "index.js",
   "scripts": {
     "test": "tsc && jest"
