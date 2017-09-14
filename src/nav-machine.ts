@@ -1,42 +1,74 @@
 type TransitionCondition<T> = (s: T) => boolean;
 type NavigatorStates<T> = { [from: string]: { [to: string]: TransitionCondition<T> }};
 
+type Listener<T> = (from?: string, to?: string, input?: T) => void;
+type Unsubscribe = () => void;
+type State = string;
+type StateConstants = { [state: string]: State };
+
+interface Configuration {
+    init: (states: StateConstants) => State;
+}
+
+interface Initializer<T> {
+    config: Configuration,
+    states: NavigatorStates<T>
+};
+
 export default class Nav<T> {
+    config: Configuration;
     state: string;
-    states: { [key: string]: string };
+    states: StateConstants;
     machine: NavigatorStates<T> = {};
+    private subscribers: Listener<T>[] = [];
 
-    static any = Symbol("any valid state");
-    static continue = () => true;
+    static FromAnyState = Symbol("Represents any valid state");
+    static Config = Symbol("Stores configuration data");
+    static Continue = () => true;
 
-    constructor (initialState: string, states: NavigatorStates<T>) {
-        this.state = initialState;
+    constructor (initializer: Initializer<T>) {
+        const states = initializer.states;
+        this.config = initializer.config;
         this.machine = states;
-        this.states = {};
-        for (let state in states) {
-            this.states[state] = state;
+        this.states = Object.keys(states).reduce((lookup, state) => {
+            lookup[state] = state;
+            return lookup;
+        }, <StateConstants>{});
+        this.state = this.config.init(this.states);
+        if (!this.states[this.state]) {
+            throw new Error(`Invalid initial state: "${this.state}" - known states: [${Object.keys(this.states)}]`);
         }
     }
 
-    to (state: string): string {
-        console.log(`${this.state} --> ${state}`);
+    to (state: string, input?: T): string {
+        const last = this.state;
         this.state = state;
+        this.subscribers.forEach(s => s(last, state, input));        
         return state;
     }
 
-    next (data: T): string {
+    next (input: T): string {
         const from = this.state.toString();
-        for (let to in this.machine[Nav.any]) {
-            if (this.machine[Nav.any][to](data)) {
-                return this.to(to);
+        for (let to in this.machine[Nav.FromAnyState]) {
+            if (this.machine[Nav.FromAnyState][to](input)) {
+                return this.to(to, input);
             }
         }
         for (let to in this.machine[from]) {
-            if (this.machine[from][to](data)) {
-                return this.to(to);
+            if (this.machine[from][to](input)) {
+                return this.to(to, input);
             }
         }
         return this.state;
+    }
+
+    subscribe (listener: Listener<T>): Unsubscribe {
+        this.subscribers.push(listener);
+        return () => {
+            const subs = this.subscribers;
+            const i = subs.indexOf(listener);
+            this.subscribers = subs.slice(0, i).concat(subs.slice(i+1));
+        }
     }
 
 }
