@@ -1,6 +1,35 @@
 import * as mata from './mata';
 import { toMermaid, toDot } from './visualizers';
 
+interface User {
+    admin: boolean
+    authed: boolean
+}
+
+const fsm = new mata.Machine<User>({
+    machine: {
+        signIn: {
+            adminView: (u) => u.admin,
+            userView: (u) => u.authed && !u.admin
+        },
+        adminView: {
+            signOut: (u) => !u.authed
+        },
+        userView: {
+            signOut: (u) => !u.authed        
+        },
+        signOut: {
+            signIn: mata.Continue 
+        }
+    },
+    config: {
+        init: (states) => states.signIn
+    }
+}); 
+
+console.log(toMermaid(fsm));
+console.log(toDot(fsm));
+
 describe("nav-machine", () => {
     it("Initialization", () => {
         interface SinkControls {
