@@ -2,8 +2,8 @@
   "name": "mata-devtool",
   "version": "0.0.0",
   "description": "Visual debugger for Mata finite state machines",
-  "main": "build/main",
-  "types": "dist/main.d.ts",
+  "main": "build/devtool",
+  "types": "build/devtool.d.ts",
   "scripts": {
     "test": "tsc && jest"
   },
