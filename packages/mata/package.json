@@ -2,7 +2,8 @@
   "name": "mata",
   "version": "0.0.1",
   "description": "Input-driven finite state automata",
-  "main": "index.js",
+  "main": "build/mata",
+  "types": "build/mata.d.ts",
   "scripts": {
     "test": "tsc && jest"
   },

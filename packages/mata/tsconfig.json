@@ -11,7 +11,8 @@
         "preserveConstEnums": true,
         "sourceMap": true,
         "outDir": "build/",
-        "target": "ES6"
+        "target": "ES6",
+        "declaration": true
     },
     "include": [
         "src/**/*"
