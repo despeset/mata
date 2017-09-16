@@ -1,37 +1,8 @@
-import * as mata from './mata';
-import { toMermaid, toDot } from './visualizers';
-
-interface User {
-    admin: boolean
-    authed: boolean
-}
-
-const fsm = new mata.Machine<User>({
-    machine: {
-        signIn: {
-            adminView: (u) => u.admin,
-            userView: (u) => u.authed && !u.admin
-        },
-        adminView: {
-            signOut: (u) => !u.authed
-        },
-        userView: {
-            signOut: (u) => !u.authed        
-        },
-        signOut: {
-            signIn: mata.Continue 
-        }
-    },
-    config: {
-        init: (states) => states.signIn
-    }
-}); 
-
-console.log(toMermaid(fsm));
-console.log(toDot(fsm));
+import * as Mata from './mata';
 
 describe("nav-machine", () => {
     it("Initialization", () => {
+
         interface SinkControls {
             tap: number
             waterVolume: number
@@ -39,27 +10,24 @@ describe("nav-machine", () => {
             drainable: boolean
         };
         
-        const sink = new mata.Machine<SinkControls>({
-            config: {
-                init: (states) => states.empty
+        const Sink = new Mata.Machine<SinkControls>({
+            [Mata.FromAnyState]: {
+                running: (s) => s.tap > 0,                    
             },
-            machine: {
-                [mata.FromAnyState]: {
-                    running: (s) => s.tap > 0,                    
-                },
-                empty: {},
-                running: {
-                    full: (s) => s.tap === 0 && !s.drainable,
-                    draining: (s) => s.tap === 0 && s.drainable,
-                },
-                full: {
-                    draining: (s) => s.drainable,
-                },
-                draining: {
-                    empty: mata.Continue
-                },
-            }
+            empty: {},
+            running: {
+                full: (s) => s.tap === 0 && !s.drainable,
+                draining: (s) => s.tap === 0 && s.drainable,
+            },
+            full: {
+                draining: (s) => s.drainable,
+            },
+            draining: {
+                empty: Mata.Continue
+            },
         });
+        
+        const sink = Sink.init(Sink.states.empty);
 
         const controls: SinkControls = {
             tap: 0,
@@ -94,7 +62,6 @@ describe("nav-machine", () => {
         sink.next(controls);
         expect(state()).toBe(states.draining);
         
-        console.log(toMermaid(sink, { collapseWildcards: true }));
     })
 
     it("Transitions between states based on input (kitchen sink test)", () => {
@@ -129,44 +96,41 @@ describe("nav-machine", () => {
             signOut: false
         };
     
-        const nav = new mata.Machine<State>({
-            config: {
-                init: (states) => states.welcome
+        const Nav = new Mata.Machine<State>({
+            welcome: {
+                tutorial: (s) => s.user.gamesPlayed < 1,
+                game: (s) => s.user.gamesPlayed > 0,
             },
-            machine: {
-                welcome: {
-                    tutorial: (s) => s.user.gamesPlayed < 1,
-                    game: (s) => s.user.gamesPlayed > 0,
-                },
-                tutorial: {
-                    game: (s) => s.user.gamesPlayed > 0 && !s.forceTutorial,
-                },
-                game: {
-                    stageOne: mata.Continue,
-                },
-                stageOne: {
-                    stageTwo: mata.Continue,
-                },
-                stageTwo: {
-                    stageThree: mata.Continue,
-                },
-                stageThree: {
-                    view: (s) => s.game.finished,
-                },
-                view: {
-                    game: (s) => !s.game.finished,
-                },
-                gameOver: {
-                    game: (s) => !s.game.finished && !s.game.dead,
-                },
-                [mata.FromAnyState]: {
-                    tutorial: (s) => s.forceTutorial,
-                    signOut: (s) => s.signOut,
-                    gameOver: (s) => s.game.dead,
-                }
+            tutorial: {
+                game: (s) => s.user.gamesPlayed > 0 && !s.forceTutorial,
+            },
+            game: {
+                stageOne: Mata.Continue,
+            },
+            stageOne: {
+                stageTwo: Mata.Continue,
+            },
+            stageTwo: {
+                stageThree: Mata.Continue,
+            },
+            stageThree: {
+                view: (s) => s.game.finished,
+            },
+            view: {
+                game: (s) => !s.game.finished,
+            },
+            gameOver: {
+                game: (s) => !s.game.finished && !s.game.dead,
+            },
+            [Mata.FromAnyState]: {
+                tutorial: (s) => s.forceTutorial,
+                signOut: (s) => s.signOut,
+                gameOver: (s) => s.game.dead,
             }
         });
         
+        const nav = Nav.init(Nav.states.welcome);
+
         expect(nav.state).toBe(nav.states.welcome);
         nav.next(state);
         expect(nav.state).toBe(nav.states.tutorial);
@@ -190,7 +154,7 @@ describe("nav-machine", () => {
         expect(nav.state).toBe(nav.states.gameOver);
         state.game.dead = false;
         
-        nav.transition('welcome');
+        nav.force('welcome');
         nav.next(state);
         expect(nav.state).toBe(nav.states.game);
         state.forceTutorial = true;
@@ -199,9 +163,6 @@ describe("nav-machine", () => {
         state.forceTutorial = false;
         nav.next(state);
         expect(nav.state).toBe(nav.states.game);
-
-        console.log(toDot(nav,  { collapseWildcards: true }));
-        console.log(toMermaid(nav, { collapseWildcards: true }));
     });
 })
 
