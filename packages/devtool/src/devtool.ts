@@ -1,4 +1,4 @@
-import * as Mata from 'Mata';
+import * as Mata from 'mata';
 
 function flatten<T>(arr: T[][]): T[] {
 	return [].concat.apply([], arr);
@@ -12,33 +12,41 @@ const defaultConfig = {
 	collapseWildcards: false,
 }
 
-export function toMermaid(nav: Mata.Machine<any>, options: Config = defaultConfig) {
+export function toMermaid(nav: Mata.Automata<any>, options: Config = defaultConfig) {
 	const config = Object.assign({}, defaultConfig, options);
-	let edges = flatten<string>(Object.keys(nav.machine).map(from => {
-		return Object.keys(nav.machine[from]).map(to => {
-			const condition = nav.machine[from][to];
-			return `${from} --"${condition === Mata.Continue ? ' ' : condition.toString()}"--> ${to}`;
+	const machine = nav.type.machine;
+	let edges = flatten<string>(Object.keys(machine).map(from => {
+		return Object.keys(machine[from]).map(to => {
+			const condition = machine[from][to];
+			const f = nav.state === from ? 'active['+from+']' : from;
+			const t = nav.state === to ? 'active['+to+']' : to;
+			return `${f} --"${condition === Mata.Continue ? ' ' : condition.toString()}"--> ${t}`;
 		});
-	})).concat(flatten<string>(Object.keys(nav.machine[Mata.FromAnyState] || {}).map(to => {
+	})).concat(flatten<string>(Object.keys(machine[Mata.FromAnyState] || {}).map(to => {
 		if (config.collapseWildcards) {
-			return [`=((*)) --"${nav.machine[Mata.FromAnyState][to].toString()}"--> ${to}`];
+			const t = nav.state === to ? 'active['+to+']' : to;			
+			return [`=((*)) --"${machine[Mata.FromAnyState][to].toString()}"--> ${t}`];
 		}
 		return Object.keys(nav.states).map(from => {
-			return from !== to ? `${from} -."${nav.machine[Mata.FromAnyState][to].toString()}".-> ${to}` : '';
+			const f = nav.state === from ? 'active['+from+']' : from;
+			const t = nav.state === to ? 'active['+to+']' : to;
+			return from !== to ? `${f} -."${machine[Mata.FromAnyState][to].toString()}".-> ${t}` : '';
 		});
 	})));
 	return `graph LR
 	${edges.join('\n\t')}
+	style active fill:#f99
 `;
 }
 
-export function toDot(nav: Mata.Machine<any>, options: Config = defaultConfig) {
+export function toDot(nav: Mata.Automata<any>, options: Config = defaultConfig) {
 	const config = Object.assign({}, defaultConfig, options);
-	let edges = flatten<string>(Object.keys(nav.machine).map(from => {
-		return Object.keys(nav.machine[from]).map(to => {
+	const machine = nav.type.machine;	
+	let edges = flatten<string>(Object.keys(machine).map(from => {
+		return Object.keys(machine[from]).map(to => {
 			return `${from} -> ${to};`;
 		});
-	})).concat(flatten<string>(Object.keys(nav.machine[Mata.FromAnyState] || {}).map(to => {
+	})).concat(flatten<string>(Object.keys(machine[Mata.FromAnyState] || {}).map(to => {
 		if (config.collapseWildcards) {
 			return [`"*" -> ${to}`];
 		}
