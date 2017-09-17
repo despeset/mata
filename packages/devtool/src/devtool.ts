@@ -1,60 +1,33 @@
 import * as Mata from 'mata';
+import { toMermaid } from './renderers';
+import * as mermaidAPI from 'mermaid';
 
-function flatten<T>(arr: T[][]): T[] {
-	return [].concat.apply([], arr);
+mermaidAPI.initialize({
+	cloneCssStyles: false
+});
+  
+export class Inspector {
+	fsm: Mata.Automata<any>;
+	svg: string;
+	$el: HTMLElement;
+
+	constructor(parent: HTMLElement, fsm: Mata.Automata<any>) {
+		this.fsm = fsm;
+		fsm.subscribe(() => this.update());
+		this.$el = document.createElement('div');
+		parent.appendChild(this.$el);
+	}
+
+	private update() {
+		const src = toMermaid(this.fsm);
+		console.log(src);
+		mermaidAPI.render('fsm', src, (svg: string) => {
+			this.svg = svg;
+			this.$el.innerHTML = svg;
+			this.$el.children[0].children[0].innerHTML = '';
+		}, this.$el);
+	}
+
 }
 
-export interface Config {
-	collapseWildcards: boolean
-};
-
-const defaultConfig = {
-	collapseWildcards: false,
-}
-
-export function toMermaid(nav: Mata.Automata<any>, options: Config = defaultConfig) {
-	const config = Object.assign({}, defaultConfig, options);
-	const machine = nav.type.machine;
-	let edges = flatten<string>(Object.keys(machine).map(from => {
-		return Object.keys(machine[from]).map(to => {
-			const condition = machine[from][to];
-			const f = nav.state === from ? 'active['+from+']' : from;
-			const t = nav.state === to ? 'active['+to+']' : to;
-			return `${f} --"${condition === Mata.Continue ? ' ' : condition.toString()}"--> ${t}`;
-		});
-	})).concat(flatten<string>(Object.keys(machine[Mata.FromAnyState] || {}).map(to => {
-		if (config.collapseWildcards) {
-			const t = nav.state === to ? 'active['+to+']' : to;			
-			return [`=((*)) --"${machine[Mata.FromAnyState][to].toString()}"--> ${t}`];
-		}
-		return Object.keys(nav.states).map(from => {
-			const f = nav.state === from ? 'active['+from+']' : from;
-			const t = nav.state === to ? 'active['+to+']' : to;
-			return from !== to ? `${f} -."${machine[Mata.FromAnyState][to].toString()}".-> ${t}` : '';
-		});
-	})));
-	return `graph LR
-	${edges.join('\n\t')}
-	style active fill:#f99
-`;
-}
-
-export function toDot(nav: Mata.Automata<any>, options: Config = defaultConfig) {
-	const config = Object.assign({}, defaultConfig, options);
-	const machine = nav.type.machine;	
-	let edges = flatten<string>(Object.keys(machine).map(from => {
-		return Object.keys(machine[from]).map(to => {
-			return `${from} -> ${to};`;
-		});
-	})).concat(flatten<string>(Object.keys(machine[Mata.FromAnyState] || {}).map(to => {
-		if (config.collapseWildcards) {
-			return [`"*" -> ${to}`];
-		}
-		return Object.keys(nav.states).map(from => {
-			return from !== to ? `${from} -> ${to};` : '';
-		});
-	})));
-	return `digraph workflow {
-	${edges.join('\n\t')}
-}`;
-}
+export { toMermaid, toDot } from './renderers';
