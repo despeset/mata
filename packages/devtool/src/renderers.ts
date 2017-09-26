@@ -1,8 +1,5 @@
 import * as Mata from 'mata';
-
-function flatten<T>(arr: T[][]): T[] {
-	return [].concat.apply([], arr);
-}
+import { flatten } from './util';
 
 export interface Config {
 	collapseWildcards: boolean

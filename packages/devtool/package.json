@@ -5,7 +5,8 @@
   "main": "build/devtool",
   "types": "build/devtool.d.ts",
   "scripts": {
-    "test": "tsc && jest"
+    "build": "tsc",
+    "test": "yarn build && jest"
   },
   "author": "daniel@danielespeset.com",
   "license": "MIT",
@@ -14,6 +15,8 @@
     "jest": "^20.0.0"
   },
   "dependencies": {
+    "@types/d3": "^4.10.0",
+    "d3": "^4.10.2",
     "mermaid": "^7.1.0"
   }
 }
