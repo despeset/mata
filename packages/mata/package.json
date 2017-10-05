@@ -5,6 +5,7 @@
   "main": "build/mata",
   "types": "build/mata.d.ts",
   "scripts": {
+    "prepare": "tsc",
     "test": "tsc && jest"
   },
   "author": "daniel@danielespeset.com",

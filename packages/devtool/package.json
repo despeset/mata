@@ -1,11 +1,11 @@
 {
-  "name": "mata-devtool",
+  "name": "@mata/devtool",
   "version": "0.0.0",
   "description": "Visual debugger for Mata finite state machines",
   "main": "build/devtool",
   "types": "build/devtool.d.ts",
   "scripts": {
-    "build": "tsc",
+    "prepare": "tsc",
     "test": "yarn build && jest"
   },
   "author": "daniel@danielespeset.com",
@@ -15,6 +15,7 @@
     "jest": "^20.0.0"
   },
   "dependencies": {
+    "mata": "^0.0.1",
     "@types/d3": "^4.10.0",
     "d3": "^4.10.2",
     "mermaid": "^7.1.0"
