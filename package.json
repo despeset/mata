@@ -1,0 +1,12 @@
+{
+  "name": "mata-mono",
+  "version": "0.0.0",
+  "description": "Monorepo for Mata projects: mata, @mata/devtool, @mata/reflection",
+  "main": "index.js",
+  "author": "Daniel Espeset <daniel@danielespeset.com>",
+  "license": "MIT",
+  "private": true,
+  "dependencies": {
+    "lerna": "^2.3.1"
+  }
+}
