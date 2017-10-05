@@ -1,7 +1,8 @@
 import * as Mata from './mata';
 
 describe("nav-machine", () => {
-    it("Initialization", () => {
+
+    it("Defines and creates finite state automata", () => {
 
         interface SinkControls {
             tap: number
@@ -62,7 +63,49 @@ describe("nav-machine", () => {
         sink.next(controls);
         expect(state()).toBe(states.draining);
         
-    })
+    });
+
+    it("Supports global conditions", () => {
+
+        interface Player {
+            lives: number
+            score: number
+        };
+
+        const GameState = new Mata.Machine<Player>({
+            start: {
+                stageOne: Mata.Continue,
+                lost: Mata.Never,
+            },
+            stageOne: {
+                stageTwo: ({ score }) => score > 100
+            },
+            stageTwo: {
+                won: ({ score }) => score > 200,
+            },
+            won: {
+                start: Mata.Continue,
+                lost: Mata.Never,
+            },
+            lost: {
+                start: Mata.Continue
+            },
+            [Mata.FromAnyState]: {
+                lost: ({ lives }) => lives === 0
+            },
+        });
+
+        const S = GameState.states;
+        const game = GameState.init(S.start);
+
+        expect(game.next({ lives: 10, score: 0 })).toBe(S.stageOne);
+        expect(game.next({ lives: 0, score: 0 })).toBe(S.lost);
+        
+        game.force(S.start)
+        expect(game.next({ lives: 0, score: 0 })).toBe(S.stageOne);
+
+    });
+        
 
     it("Transitions between states based on input (kitchen sink test)", () => {
 

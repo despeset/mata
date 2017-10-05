@@ -15,8 +15,9 @@ export interface TransitionEvent<T> {
 export const FromAnyState = Symbol("Represents any valid state");
 export const Config = Symbol("Stores configuration data");
 export const Continue = () => true;
+export const Never = () => false;
 
-export class Automata<T> {
+export class Automaton<T> {
     private _state: string;
     private subscribers: Listener<T>[] = [];
     private machine: MachineSchema<T>;
@@ -55,6 +56,10 @@ export class Automata<T> {
     next (input: T): string {
         const from = this._state.toString();
         for (let to in this.machine[FromAnyState]) {
+            if (this.machine[from][to]) {
+                // defer to more specific condition
+                continue;
+            }
             if (this.machine[FromAnyState][to](input)) {
                 return this.transition(to, input);
             }
@@ -90,7 +95,7 @@ export class Machine<T> {
     }
 
     init (state: State) {
-        return new Automata<T>(this, this.machine, this.states, state);        
+        return new Automaton<T>(this, this.machine, this.states, state);        
     }
 
 }
