@@ -11,7 +11,7 @@ describe("nav-machine", () => {
             drainable: boolean
         };
         
-        const Sink = new Mata.Machine<SinkControls>({
+        const Sink = new Mata.Schematic<SinkControls>({
             [Mata.FromAnyState]: {
                 running: (s) => s.tap > 0,                    
             },
@@ -28,7 +28,7 @@ describe("nav-machine", () => {
             },
         });
         
-        const sink = Sink.init(Sink.states.empty);
+        const sink = Sink.createAutomaton(Sink.states.empty);
 
         const controls: SinkControls = {
             tap: 0,
@@ -72,7 +72,7 @@ describe("nav-machine", () => {
             score: number
         };
 
-        const GameState = new Mata.Machine<Player>({
+        const GameState = new Mata.Schematic<Player>({
             start: {
                 stageOne: Mata.Continue,
                 lost: Mata.Never,
@@ -96,7 +96,7 @@ describe("nav-machine", () => {
         });
 
         const S = GameState.states;
-        const game = GameState.init(S.start);
+        const game = GameState.createAutomaton(S.start);
 
         expect(game.next({ lives: 10, score: 0 })).toBe(S.stageOne);
         expect(game.next({ lives: 0, score: 0 })).toBe(S.lost);
@@ -139,7 +139,7 @@ describe("nav-machine", () => {
             signOut: false
         };
     
-        const Nav = new Mata.Machine<State>({
+        const Nav = new Mata.Schematic<State>({
             welcome: {
                 tutorial: (s) => s.user.gamesPlayed < 1,
                 game: (s) => s.user.gamesPlayed > 0,
@@ -172,7 +172,7 @@ describe("nav-machine", () => {
             }
         });
         
-        const nav = Nav.init(Nav.states.welcome);
+        const nav = Nav.createAutomaton(Nav.states.welcome);
 
         expect(nav.state).toBe(nav.states.welcome);
         nav.next(state);

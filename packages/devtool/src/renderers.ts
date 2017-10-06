@@ -9,9 +9,9 @@ const defaultConfig = {
 	collapseWildcards: false,
 }
 
-export function toMermaid(nav: Mata.Automata<any>, options: Config = defaultConfig) {
+export function toMermaid(nav: Mata.Automaton<any>, options: Config = defaultConfig) {
 	const config = Object.assign({}, defaultConfig, options);
-	const machine = nav.type.machine;
+	const machine = nav.schematic.rules;
 	let edges = flatten<string>(Object.keys(machine).map(from => {
 		return Object.keys(machine[from]).map(to => {
 			const condition = machine[from][to];
@@ -36,9 +36,9 @@ export function toMermaid(nav: Mata.Automata<any>, options: Config = defaultConf
 `;
 }
 
-export function toDot(nav: Mata.Automata<any>, options: Config = defaultConfig) {
+export function toDot(nav: Mata.Automaton<any>, options: Config = defaultConfig) {
 	const config = Object.assign({}, defaultConfig, options);
-	const machine = nav.type.machine;	
+	const machine = nav.schematic.rules;	
 	let edges = flatten<string>(Object.keys(machine).map(from => {
 		return Object.keys(machine[from]).map(to => {
 			return `${from} -> ${to};`;

@@ -1,7 +1,7 @@
 export type State = string;
 export type ValidStates = { [state: string]: State };
 export type Condition<T> = (input: T) => boolean;
-export type MachineSchema<T> = { [from: string]: { [to: string]: Condition<T> }};
+export type Ruleset<T> = { [from: string]: { [to: string]: Condition<T> }};
 
 export type Listener<T> = (event: TransitionEvent<T>) => void;
 export type Unsubscribe = () => void;
@@ -20,13 +20,13 @@ export const Never = () => false;
 export class Automaton<T> {
     private _state: string;
     private subscribers: Listener<T>[] = [];
-    private machine: MachineSchema<T>;
-    type: Machine<T>;
+    private rules: Ruleset<T>;
+    schematic: Schematic<T>;
     states: ValidStates;
 
-    constructor(type: Machine<T>, schema: MachineSchema<T>, states: ValidStates, initialState: State) {
-        this.type = type;
-        this.machine = schema;
+    constructor(schematic: Schematic<T>, rules: Ruleset<T>, states: ValidStates, initialState: State) {
+        this.schematic = schematic;
+        this.rules = rules;
         this.states = states;
         this._state = initialState;
         if (!this.states[this._state]) {
@@ -55,17 +55,17 @@ export class Automaton<T> {
 
     next (input: T): string {
         const from = this._state.toString();
-        for (let to in this.machine[FromAnyState]) {
-            if (this.machine[from][to]) {
+        for (let to in this.rules[FromAnyState]) {
+            if (this.rules[from][to]) {
                 // defer to more specific condition
                 continue;
             }
-            if (this.machine[FromAnyState][to](input)) {
+            if (this.rules[FromAnyState][to](input)) {
                 return this.transition(to, input);
             }
         }
-        for (let to in this.machine[from]) {
-            if (this.machine[from][to](input)) {
+        for (let to in this.rules[from]) {
+            if (this.rules[from][to](input)) {
                 return this.transition(to, input);
             }
         }
@@ -82,20 +82,20 @@ export class Automaton<T> {
     }
 }
 
-export class Machine<T> {
+export class Schematic<T> {
     states: ValidStates;
-    machine: MachineSchema<T> = {};
+    rules: Ruleset<T> = {};
 
-    constructor (schema: MachineSchema<T>) {
-        this.machine = schema;
-        this.states = Object.keys(this.machine).reduce((lookup, state) => {
+    constructor (rules: Ruleset<T>) {
+        this.rules = rules;
+        this.states = Object.keys(this.rules).reduce((lookup, state) => {
             lookup[state] = state;
             return lookup;
         }, <ValidStates>{});
     }
 
-    init (state: State) {
-        return new Automaton<T>(this, this.machine, this.states, state);        
+    createAutomaton (state: State) {
+        return new Automaton<T>(this, this.rules, this.states, state);        
     }
 
 }

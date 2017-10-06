@@ -14,7 +14,7 @@ interface Link {
 type Nodes = Node[];
 type Links = Link[];
 
-function initStaticForceLayout(svg: d3.Selection<SVGSVGElement, SVGSVGElement, null, undefined>, nodes: Nodes, links: Links, fsm: Mata.Automata<any>) {
+function initStaticForceLayout(svg: d3.Selection<SVGSVGElement, SVGSVGElement, null, undefined>, nodes: Nodes, links: Links, fsm: Mata.Automaton<any>) {
 
 	var width = +svg.attr("width"),
 		height = +svg.attr("height"),
@@ -90,19 +90,19 @@ function initStaticForceLayout(svg: d3.Selection<SVGSVGElement, SVGSVGElement, n
 }
 
 export class Inspector {
-	fsm: Mata.Automata<any>;
+	fsm: Mata.Automaton<any>;
 	svg: string;
 	$el: HTMLElement;
 	private nodes: Nodes;
 	private links: Links;
 
-	constructor(parent: HTMLElement, fsm: Mata.Automata<any>) {
+	constructor(parent: HTMLElement, fsm: Mata.Automaton<any>) {
 		this.fsm = fsm;
 		fsm.subscribe(this.update);
 		this.$el = document.createElement('div');
 		parent.appendChild(this.$el);
-		const machine = fsm.type.machine;
-		const levelA = Object.keys(fsm.type.machine);
+		const machine = fsm.schematic.rules;
+		const levelA = Object.keys(fsm.schematic.rules);
 		
 		const states = levelA.concat(flatten(levelA.map(k => Object.keys(machine[k]))))
 			.reduce((p, c) => { 
