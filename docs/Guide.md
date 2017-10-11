@@ -214,6 +214,7 @@ Coming soon
 [next]: ./api/Automaton.md#next
 [subscribe]: ./api/Automaton.md#subscribe
 [force]: ./api/Automaton.md#force
+[state]: ./api/Automaton.md#state
 
 [Route]: ./api/Route.md
 [FromAnyState]: ./api/Route.md#FromAnyState
