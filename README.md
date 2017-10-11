@@ -12,6 +12,8 @@ Mata is well under 1kb minified and gzipped.
 
 ## Quick example
 
+For a more in-depth explanation, see the [Guide](/docs/Guide.md)
+
 ```js
 import * as Mata from 'mata';
 /**
