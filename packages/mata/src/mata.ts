@@ -7,8 +7,8 @@ export type Listener<T> = (event: TransitionEvent<T>) => void;
 export type Unsubscribe = () => void;
 
 export interface TransitionEvent<T> {
-    from: string
-    to: string
+    from: State
+    to: State
     input?: T
 }
 
