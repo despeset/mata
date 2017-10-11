@@ -1,8 +1,10 @@
 import * as Mata from './mata';
 
-describe("nav-machine", () => {
+const { Route } = Mata;
 
-    it("Defines and creates finite state automata", () => {
+describe("Verbose examples", () => {
+
+    it("Automata to control a sink", () => {
 
         interface SinkControls {
             tap: number
@@ -12,7 +14,7 @@ describe("nav-machine", () => {
         };
         
         const Sink = new Mata.Schematic<SinkControls>({
-            [Mata.FromAnyState]: {
+            [Route.FromAnyState]: {
                 running: (s) => s.tap > 0,                    
             },
             empty: {},
@@ -24,7 +26,7 @@ describe("nav-machine", () => {
                 draining: (s) => s.drainable,
             },
             draining: {
-                empty: Mata.Continue
+                empty: Route.Continue
             },
         });
         
@@ -65,7 +67,7 @@ describe("nav-machine", () => {
         
     });
 
-    it("Supports global conditions", () => {
+    it("Gamestate Automata with global Route", () => {
 
         interface Player {
             lives: number
@@ -74,8 +76,8 @@ describe("nav-machine", () => {
 
         const GameState = new Mata.Schematic<Player>({
             start: {
-                stageOne: Mata.Continue,
-                lost: Mata.Never,
+                stageOne: Route.Continue,
+                lost: Route.Never,
             },
             stageOne: {
                 stageTwo: ({ score }) => score > 100
@@ -84,13 +86,13 @@ describe("nav-machine", () => {
                 won: ({ score }) => score > 200,
             },
             won: {
-                start: Mata.Continue,
-                lost: Mata.Never,
+                start: Route.Continue,
+                lost: Route.Never,
             },
             lost: {
-                start: Mata.Continue
+                start: Route.Continue
             },
-            [Mata.FromAnyState]: {
+            [Route.FromAnyState]: {
                 lost: ({ lives }) => lives === 0
             },
         });
@@ -107,7 +109,7 @@ describe("nav-machine", () => {
     });
         
 
-    it("Transitions between states based on input (kitchen sink test)", () => {
+    it("User flow navigation automata", () => {
 
         interface UserState {
             authed: boolean,
@@ -148,13 +150,13 @@ describe("nav-machine", () => {
                 game: (s) => s.user.gamesPlayed > 0 && !s.forceTutorial,
             },
             game: {
-                stageOne: Mata.Continue,
+                stageOne: Route.Continue,
             },
             stageOne: {
-                stageTwo: Mata.Continue,
+                stageTwo: Route.Continue,
             },
             stageTwo: {
-                stageThree: Mata.Continue,
+                stageThree: Route.Continue,
             },
             stageThree: {
                 view: (s) => s.game.finished,
@@ -165,7 +167,7 @@ describe("nav-machine", () => {
             gameOver: {
                 game: (s) => !s.game.finished && !s.game.dead,
             },
-            [Mata.FromAnyState]: {
+            [Route.FromAnyState]: {
                 tutorial: (s) => s.forceTutorial,
                 signOut: (s) => s.signOut,
                 gameOver: (s) => s.game.dead,
@@ -206,6 +208,30 @@ describe("nav-machine", () => {
         state.forceTutorial = false;
         nav.next(state);
         expect(nav.state).toBe(nav.states.game);
+    });
+
+});
+
+describe("Discrete behavior", () => {
+
+    let ShouldNeverBeCalled = true;
+    const MutliTerminal = new Mata.Schematic<any>({
+        A: {
+            B: Route.Continue,
+            C: () => ShouldNeverBeCalled = false,
+        }
+    });
+
+    test('Supports terminal states which only appear at the second level', () => {
+        expect(MutliTerminal.states.B).toBe('B');            
+    })
+        
+    test('Transitions to the first matching state', () => {
+        // Object property order is guarenteed for non-numeric keys in ES2015 (9.1.12.3)
+        const fsm = MutliTerminal.createAutomaton(MutliTerminal.states.A);
+        fsm.next(null)
+        expect(fsm.state).toBe(MutliTerminal.states.B);        
+        expect(ShouldNeverBeCalled).toBeTruthy();    
     });
 })
 
