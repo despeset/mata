@@ -5,8 +5,9 @@
   "main": "build/mata",
   "types": "build/mata.d.ts",
   "scripts": {
-    "prepare": "tsc",
-    "test": "tsc && jest"
+    "build": "tsc",
+    "prepare": "npm run build",
+    "test": "npm run build && jest"
   },
   "author": "daniel@danielespeset.com",
   "license": "MIT",

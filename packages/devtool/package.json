@@ -5,8 +5,9 @@
   "main": "build/devtool",
   "types": "build/devtool.d.ts",
   "scripts": {
-    "prepare": "tsc",
-    "test": "yarn build && jest"
+    "build": "tsc",
+    "prepare": "npm run build",
+    "test": "npm run build && jest"
   },
   "author": "daniel@danielespeset.com",
   "license": "MIT",
