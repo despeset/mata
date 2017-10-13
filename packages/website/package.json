@@ -1,0 +1,28 @@
+{
+  "name": "@mata/website",
+  "version": "0.0.0",
+  "description": "Example website for Mata",
+  "main": "build/main",
+  "types": "build/main.d.ts",
+  "scripts": {
+    "build": "webpack",
+    "watch": "webpack --watch",
+    "prepare": "npm run build",
+    "test": "npm run build && jest"
+  },
+  "author": "daniel@danielespeset.com",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/jest": "^19.2.3",
+    "awesome-typescript-loader": "^3.2.3",
+    "copy-webpack-plugin": "^4.1.1",
+    "jest": "^20.0.0",
+    "typescript": "^2.5.3",
+    "webpack": "^3.7.1"
+  },
+  "dependencies": {
+    "mata": "^0.0.1",
+    "@mata/devtool": "^0.0.0"
+  },
+  "private": true
+}
