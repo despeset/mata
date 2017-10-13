@@ -1,6 +1,8 @@
 import * as Mata from 'mata';
 import { flatten } from './util';
 
+const { Route } = Mata;
+
 export interface Config {
 	collapseWildcards: boolean
 };
@@ -17,17 +19,17 @@ export function toMermaid(nav: Mata.Automaton<any>, options: Config = defaultCon
 			const condition = machine[from][to];
 			const f = nav.state === from ? 'active['+from+']' : from;
 			const t = nav.state === to ? 'active['+to+']' : to;
-			return `${f} --"${condition === Mata.Continue ? ' ' : condition.toString()}"--> ${t}`;
+			return `${f} --"${condition === Route.Continue ? ' ' : condition.toString()}"--> ${t}`;
 		});
-	})).concat(flatten<string>(Object.keys(machine[Mata.FromAnyState] || {}).map(to => {
+	})).concat(flatten<string>(Object.keys(machine[Route.FromAnyState] || {}).map(to => {
 		if (config.collapseWildcards) {
 			const t = nav.state === to ? 'active['+to+']' : to;			
-			return [`=((*)) --"${machine[Mata.FromAnyState][to].toString()}"--> ${t}`];
+			return [`=((*)) --"${machine[Route.FromAnyState][to].toString()}"--> ${t}`];
 		}
 		return Object.keys(nav.states).map(from => {
 			const f = nav.state === from ? 'active['+from+']' : from;
 			const t = nav.state === to ? 'active['+to+']' : to;
-			return from !== to ? `${f} -."${machine[Mata.FromAnyState][to].toString()}".-> ${t}` : '';
+			return from !== to ? `${f} -."${machine[Route.FromAnyState][to].toString()}".-> ${t}` : '';
 		});
 	})));
 	return `graph TD
@@ -43,7 +45,7 @@ export function toDot(nav: Mata.Automaton<any>, options: Config = defaultConfig)
 		return Object.keys(machine[from]).map(to => {
 			return `${from} -> ${to};`;
 		});
-	})).concat(flatten<string>(Object.keys(machine[Mata.FromAnyState] || {}).map(to => {
+	})).concat(flatten<string>(Object.keys(machine[Route.FromAnyState] || {}).map(to => {
 		if (config.collapseWildcards) {
 			return [`"*" -> ${to}`];
 		}

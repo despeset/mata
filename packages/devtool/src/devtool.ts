@@ -124,9 +124,6 @@ export class Inspector {
 			});
 		}));
 
-		console.log(this.nodes);
-		console.log(this.links);
-		
 		// const $svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
 		// $svg.setAttribute('width', document.innerWidth);
 		// $svg.setAttribute('height', '300');
