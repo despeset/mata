@@ -1,110 +1,52 @@
 import * as Mata from 'mata';
 import * as d3 from 'd3';
+import * as dagreD3 from 'dagre-d3';
 import { flatten } from './util';
 
-interface Node {
-	index: number
-};
-
-interface Link {
-	source: number
-	target: number
-}
-
-type Nodes = Node[];
-type Links = Link[];
-
-function initStaticForceLayout(svg: d3.Selection<SVGSVGElement, SVGSVGElement, null, undefined>, nodes: Nodes, links: Links, fsm: Mata.Automaton<any>) {
-
-	var width = +svg.attr("width"),
-		height = +svg.attr("height"),
-		g = svg.append("g").attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
-
-	var simulation = d3.forceSimulation(nodes)
-		.force("charge", d3.forceManyBody().strength(-100))
-		.force("link", d3.forceLink(links).distance(100).strength(1).iterations(10))
-		.force("collide", d3.forceCollide().radius(50).strength(0.12))
-		.force("x", d3.forceX())
-		.force("y", d3.forceY(0).strength((n: any) => n.y < 0 ? 1 : 0 ))
-		.stop();
-
-	var loading = svg.append("text")
-		.attr("dy", "0.35em")
-		.attr("text-anchor", "middle")
-		.attr("font-family", "sans-serif")
-		.attr("font-size", 10)
-		.text("Simulating. One moment please…");
-
-	// Use a timeout to allow the rest of the page to load first.
-	d3.timeout(function() {
-		loading.remove();
-	
-		// See https://github.com/d3/d3-force/blob/master/README.md#simulation_tick
-		for (var i = 0, n = Math.ceil(Math.log(simulation.alphaMin()) / Math.log(1 - simulation.alphaDecay())); i < n; ++i) {
-			simulation.tick();
-		}
-	
-		g.append("g")
-			.attr("stroke", "#000")
-			.attr("stroke-width", 1.5)
-		.selectAll("line")
-		.data(links)
-		.enter().append("line")
-			.attr("x1", function(d: any) { return d.source.x; })
-			.attr("y1", function(d: any) { return d.source.y; })
-			.attr("x2", function(d: any) { return d.target.x; })
-			.attr("y2", function(d: any) { return d.target.y; });
-	
-		const rectContainer = g.append("g")
-		.selectAll("rect")
-		.data(nodes);
-
-		const rects = rectContainer.enter().append("rect")
-			.attr("width", 60)
-			.attr("height", 40)
-			.attr("x", (node: any) => node.x-30)
-			.attr("y", (node: any) => node.y-20)
-			.attr("rx", 5)
-			.attr("ry", 5)
-			.attr("stroke", "#fff")
-			.attr("stroke-width", 1.5)
-			.attr("fill", (node: any) => node.label === fsm.state ? '#FFE46F' : '#C7FFEA' )
-
-		rectContainer.enter()
-			.append("text")
-			.attr("x", (node: any) => node.x-25)
-			.attr("y", (node: any) => node.y-5)
-			.attr("font-family", 'sans-serif')
-			.attr('fill', '#777')
-			.attr('font-size', '0.6em')
-			.attr('font-weight', 'bold')
-			.text((node: any) => node.label);
-
-		fsm.subscribe(({ to }) => {
-			rects
-				.attr("fill", (node: any) => node.label === to ? '#FFE46F' : '#C7FFEA' )
-				.attr("stroke", (node: any) => node.label === to ? '#F00' : '#FFF')
-		})
-
-	});
-}
+const { Route } = Mata;
 
 export class Inspector {
 	fsm: Mata.Automaton<any>;
-	svg: string;
+	svg: d3.Selection<SVGSVGElement>;
 	$el: HTMLElement;
-	private nodes: Nodes;
-	private links: Links;
+	g: dagreD3.graphlib.Graph;
+	render: dagreD3.Render;
+	styles: { [k:string]: { [k:string]: string }};
 
 	constructor(parent: HTMLElement, fsm: Mata.Automaton<any>) {
 		this.fsm = fsm;
-		fsm.subscribe(this.update);
+		fsm.subscribe(this.update.bind(this));
 		this.$el = document.createElement('div');
 		parent.appendChild(this.$el);
 		const machine = fsm.schematic.rules;
 		const levelA = Object.keys(fsm.schematic.rules);
+		const g = this.g = new dagreD3.graphlib.Graph();
+		const render = this.render = new dagreD3.render();
 		
-		const states = levelA.concat(flatten(levelA.map(k => Object.keys(machine[k]))))
+		const styles = this.styles = Object.freeze({
+			activeEdge: { 
+				arrowheadStyle: 'stroke: #000; fill: #000;',
+				style: 'stroke: #000; fill: none; stroke-width: 1.5;',
+			},
+			strongEdge: {
+				arrowheadStyle: 'stroke: #666; fill: #666;',
+				style: 'stroke: #666; fill: none;',
+			},
+			weakEdge: {
+				arrowheadStyle: 'stroke: #ccc; fill: #ccc;',
+				style: 'stroke: #ccc; fill: none; stroke-dasharray: 5, 5;',
+			}
+		});
+
+		g.setGraph({
+			nodesep: 70,
+			ranksep: 50,
+			rankdir: "TD",
+			marginx: 20,
+			marginy: 20,
+		});
+		
+		const states = levelA.concat(flatten(levelA.map(k => Object.keys(machine[k]))), Object.keys(machine[Route.FromAnyState] || {}))
 			.reduce((p, c) => { 
 				if (p.indexOf(c) === -1) {
 					p.push(c);
@@ -112,38 +54,119 @@ export class Inspector {
 				return p;
 			}, <string[]>[]);
 
-		this.nodes = states.map((label, index) => 
-			({ label, index }));
-
-		this.links = flatten(levelA.map(state => {
-			return Object.keys(machine[state]).map(to => {
-				return {
-					source: states.indexOf(state),
-					target: states.indexOf(to)
-				};
+		states.forEach(id => {
+			g.setNode(id, {
+				padding: 10,
+				labelStyle: "font-family:sans-serif;"
 			});
-		}));
+		});
+
+		// if (machine[Route.FromAnyState]) {
+		// 	g.setNode('*', {
+
+		// 	})
+		// }
+
+		levelA.forEach(from => {
+			Object.keys(machine[from]).forEach(to => {
+				g.setEdge(from, to, {
+					label: "", // machine[from][to].toString(),
+					...styles.strongEdge
+				});
+				if (machine[Route.FromAnyState]) {
+					for (let t in machine[Route.FromAnyState]) {
+						if (from === t) continue;
+						g.setEdge(from, t, {
+							label: "", // machine[from][to].toString(),
+							...styles.weakEdge
+						})
+					}
+				}
+			});
+		});
 
 		// const $svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
 		// $svg.setAttribute('width', document.innerWidth);
 		// $svg.setAttribute('height', '300');
 		// this.$el.appendChild($svg);
-		const svg =   d3.select(this.$el)
+		const draggable = d3.select(this.$el)
+			.append("div")
+			.classed("devtool-debugger-pane", true)
+			.attr("draggable", true);
+		draggable.append("div")
+			.classed("devtool-draggable-toolbar", true);
+		const svg = this.svg = draggable
+		.append("div")
 		.classed("svg-container", true) //container class to make it responsive
 		.append("svg")
 		//responsive SVG needs these 2 attributes and no width and height attr
 		// .attr("preserveAspectRatio", "xMinYMin meet")
-		// .attr("viewBox", "0 0 600 400")
-		.attr("width", window.innerWidth)
-		.attr("height", window.innerHeight)
+		// .attr("viewBox", "0 0 1200 800")
+		.attr("width", 500)
+		.attr("height", 480)
 		//class to make it responsive
 		.classed("svg-content-responsive", true); 
+
+		// Set some general styles
+		g.nodes().forEach(function(v) {
+			var node = g.node(v);
+			node.rx = node.ry = 5;
+			node.style = "fill: #C7FFEA";
+		});
+		var zoom = d3.behavior.zoom().on("zoom", function() {
+			svg.select("g")
+			.attr(
+				"transform", 
+				"translate(" + (<any>d3.event).translate + ")" +
+				"scale(" + (<any>d3.event).scale+ ")"
+			);
+		});
+		svg.call(zoom);
+
+		svg.call(render, g);
 		
-		initStaticForceLayout(<d3.Selection<SVGSVGElement, SVGSVGElement, null, undefined>>svg, this.nodes, this.links, this.fsm);
+		// Center the dag
+		var zoomScale = 1;
+		// Get Dagre Graph dimensions
+		var graphWidth = g.graph().width;
+		var graphHeight = g.graph().height + 0;
+		// Get SVG dimensions
+		var width = parseInt(svg.style("width").replace(/px/, ""));
+		var height = parseInt(svg.style("height").replace(/px/, ""));
+
+		// Calculate applicable scale for zoom
+		zoomScale = Math.max( Math.min(width / graphWidth, height / graphHeight), 0.5);
+
+		var translate: [number, number] = [(width/2) - ((graphWidth*zoomScale)/2), 0];
+		zoom.translate(translate);
+		zoom.scale(zoomScale);
+		zoom.event(svg.select('g'));
+
+		// initStaticForceLayout(<d3.Selection<SVGSVGElement, SVGSVGElement, null, undefined>>svg, this.nodes, this.links, this.fsm);
 	}
 
 	private update(event: Mata.TransitionEvent<any>) {
 		const { from, to, input } = event;
+		const { styles, g } = this;
+		g.node(from).style =  "fill: #C7FFEA";
+		g.node(to).style = "fill: #FFE46F";
+		g.edges().forEach((id) => {
+			let e = g.edge(id);
+			console.log(e);
+			if (id.v === to) {
+				g.setEdge(id.v, id.w, {
+					label: e.label,
+					...styles.activeEdge,
+				});
+			} else {
+				g.setEdge(id.v, id.w, {
+					label: e.label,					
+					arrowheadStyle: e.arrowheadStyle === styles.weakEdge.arrowheadStyle ? styles.weakEdge.arrowheadStyle : styles.strongEdge.arrowheadStyle,
+					style: e.style === styles.weakEdge.style ? styles.weakEdge.style : styles.strongEdge.style,
+				});
+			}
+		})
+		this.svg.call(this.render, g);
 		console.log(from, to, input);
 	}
 
