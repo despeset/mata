@@ -5,19 +5,125 @@ import { flatten } from './util';
 
 const { Route } = Mata;
 
+function style(target: HTMLElement, styles: { [prop: string]: number | string }) {
+	Object.keys(styles).forEach(prop => target.style[<any>prop] = <any>styles[prop]);
+}
+
+export class Panel {
+	frame: HTMLIFrameElement;
+	window: Window;
+	container: HTMLDivElement;
+	toolbar: HTMLDivElement;
+	body: HTMLBodyElement;
+	x: number;
+	y: number;
+	lastClientX: number | null;
+	lastClientY: number | null;
+
+	static styles = {
+		body: {
+			margin: 0
+		},
+		toolbar: {
+			width: '100em',
+			height: '20px',
+			background: 'pink',
+		},
+		frame: {
+			border: '1px solid pink',
+			position: 'absolute',
+			boxShadow: '1px 1px 2px pink',			
+		}
+	}
+
+	constructor(parent: HTMLElement, size: Size) {
+		this.frame = document.createElement('iframe');
+		parent.appendChild(this.frame);
+		this.window = this.frame.contentWindow;
+		this.container = this.window.document.createElement('div');
+		this.toolbar = this.renderToolbar();
+		this.body = <HTMLBodyElement>this.window.document.body;
+		this.body.appendChild(this.toolbar);
+		this.body.appendChild(this.container);
+		this.frame.width  = size.width + 'px';
+		this.frame.height = size.height + 'px';
+		style(this.body, Panel.styles.body);
+		style(this.frame, Panel.styles.frame);
+		this.x = 0;
+		this.y = 0;
+
+		this.drag = this.drag.bind(this);
+		
+		this.toolbar.addEventListener('mousedown', _ => {
+			console.log("DOWN");
+			style(this.frame, {
+				pointerEvents: 'none',
+				boxShadow: '3px 3px 10px pink',
+			});
+			// this.body.addEventListener('mousemove', this.drag);
+			setTimeout(() => {
+				window.document.addEventListener('mousemove', this.drag);
+			}, 0);
+		});
+		window.document.addEventListener('mouseup', _ => {
+			console.log("UP");
+			// this.body.removeEventListener('mousemove', this.drag);
+			style(this.frame, {
+				pointerEvents: 'auto',
+				boxShadow: '1px 1px 2px pink',				
+			});
+			this.lastClientX = null;
+			this.lastClientY = null;
+			window.document.removeEventListener('mousemove', this.drag);
+		});
+	}
+
+	renderToolbar() {
+		const { container, window } = this;
+		const div = window.document.createElement('div');
+		container.appendChild(div);
+		style(div, Panel.styles.toolbar);
+		return div;
+	}
+
+	drag(e: MouseEvent) {
+		this.lastClientX = this.lastClientX || e.clientX;
+		this.lastClientY = this.lastClientY || e.clientY;
+		this.x += (e.clientX - this.lastClientX);
+		this.y += (e.clientY - this.lastClientY);
+		this.lastClientX = e.clientX;
+		this.lastClientY = e.clientY;
+		this.x = this.x < 0 ? 0 : this.x;
+		this.y = this.y < 0 ? 0 : this.y;
+		console.log([this.x, this.y]);
+		style(this.frame, {
+			left: this.x + 'px',
+			top: this.y + 'px'
+		});
+	}
+	
+}
+
+export interface Size { width: number, height: number };
+
 export class Inspector {
 	fsm: Mata.Automaton<any>;
 	svg: d3.Selection<SVGSVGElement>;
 	$el: HTMLElement;
 	g: dagreD3.graphlib.Graph;
 	render: dagreD3.Render;
+	panel: Panel;
 	styles: { [k:string]: { [k:string]: string }};
 
-	constructor(parent: HTMLElement, fsm: Mata.Automaton<any>) {
+	constructor(parent: HTMLElement, fsm: Mata.Automaton<any>, size: Size = { width: 200, height: 200 }) {
 		this.fsm = fsm;
+		this.panel = new Panel(parent, { 
+			width: size.width, 
+			height: size.height + 20 
+		});
 		fsm.subscribe(this.update.bind(this));
 		this.$el = document.createElement('div');
-		parent.appendChild(this.$el);
+		this.panel.container.appendChild(this.$el);
 		const machine = fsm.schematic.rules;
 		const levelA = Object.keys(fsm.schematic.rules);
 		const g = this.g = new dagreD3.graphlib.Graph();
@@ -102,8 +208,8 @@ export class Inspector {
 		//responsive SVG needs these 2 attributes and no width and height attr
 		// .attr("preserveAspectRatio", "xMinYMin meet")
 		// .attr("viewBox", "0 0 1200 800")
-		.attr("width", 500)
-		.attr("height", 480)
+		.attr("width", size.width)
+		.attr("height", size.height)
 		//class to make it responsive
 		.classed("svg-content-responsive", true); 
 
