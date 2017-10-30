@@ -12,6 +12,13 @@ module.exports = {
     filename: 'js/main.js',
   },
 
+  watchOptions: {
+    ignored: [
+      /node_modules\/+(?!@mata\/devtool)/, 
+      /@mata\/devtool\/node_modules/,
+    ]
+  },
+  
   // Currently we need to add '.ts' to the resolve.extensions array.
   resolve: {
     extensions: ['.ts', '.tsx', '.js', '.jsx']

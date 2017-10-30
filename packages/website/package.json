@@ -6,7 +6,7 @@
   "types": "build/main.d.ts",
   "scripts": {
     "build": "webpack",
-    "watch": "webpack --watch",
+    "build:watch": "webpack --watch",
     "prepare": "npm run build",
     "test": "npm run build && jest"
   },

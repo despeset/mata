@@ -30,6 +30,9 @@ export class Panel {
 			width: '100%',
 			height: '100%',
 		},
+		BG: {
+			background: '#fffdfd',			
+		},
 		toolbar: {
 			width: '100em',
 			height: '20px',
@@ -81,7 +84,7 @@ export class Panel {
 		this.mask.style.height = size.height + 'px';
 
 		style(window.document.body, Panel.styles.body);
-		style(this.body, Panel.styles.body);
+		style(this.body, { ...Panel.styles.body, ...Panel.styles.BG });
 		style(this.frame, Panel.styles.frame);
 		style(this.mask, Panel.styles.mask);
 		
@@ -169,6 +172,13 @@ export class Panel {
 }
 
 export interface Size { width: number, height: number };
+export enum EdgeTypes {
+	Strong,
+	Weak,
+};
+export interface Edge { from: string, to: string, type: EdgeTypes };
+export type StyleDeclaration = { [key: string]: string };
+export type StyleLookup = { [key: string]: StyleDeclaration | StyleLookup };
 
 export class Inspector {
 	fsm: Mata.Automaton<any>;
@@ -178,9 +188,13 @@ export class Inspector {
 	render: dagreD3.Render;
 	panel: Panel;
 	zoom: d3.behavior.Zoom<{}>;
-	styles: { [k:string]: { [k:string]: string }};
+	styles: StyleLookup;
+	data: {
+		nodes: string[],
+		edges: Edge[],
+	}
 
-	constructor(parent: HTMLElement, fsm: Mata.Automaton<any>, size: Size = { width: 200, height: 200 }) {
+	constructor(parent: HTMLElement, fsm: Mata.Automaton<any>, size: Size = { width: 400, height: 400 }) {
 		this.fsm = fsm;
 		this.panel = new Panel(parent, { 
 			width: size.width, 
@@ -194,19 +208,40 @@ export class Inspector {
 		const levelA = Object.keys(fsm.schematic.rules);
 		const g = this.g = new dagreD3.graphlib.Graph();
 		const render = this.render = new dagreD3.render();
-		
+
 		const styles = this.styles = Object.freeze({
-			activeEdge: { 
-				arrowheadStyle: 'stroke: #000; fill: #000;',
-				style: 'stroke: #000; fill: none; stroke-width: 1.5;',
-			},
-			strongEdge: {
-				arrowheadStyle: 'stroke: #666; fill: #666;',
-				style: 'stroke: #666; fill: none;',
-			},
-			weakEdge: {
-				arrowheadStyle: 'stroke: #ccc; fill: #ccc;',
-				style: 'stroke: #ccc; fill: none; stroke-dasharray: 5, 5;',
+			edges: {
+				Strong: {
+					traversed: {
+						arrowheadStyle: 'stroke: ; fill: #99ff94;',
+						style: 'stroke: #99ff94; fill: none;',
+					},
+					active: { 
+						arrowheadStyle: 'stroke: #090; fill: #090;',
+						style: 'stroke: #090; fill: none; stroke-width: 1.3;',
+					},
+					idle: {
+						arrowheadStyle: 'stroke: #666; fill: #666;',
+						style: 'stroke: #666; fill: none;',
+					},
+				},
+				Weak: {
+					traversed: {
+						arrowhead: 'vee',
+						arrowheadStyle: 'stroke: #99ff94; fill: #99ff94;',
+						style: 'stroke: #99ff94; fill: none; stroke-dasharray: 2, 5;',
+					},
+					active: { 
+						arrowhead: 'vee',
+						arrowheadStyle: 'stroke: #000; fill: #000;',
+						style: 'stroke: #000; fill: none; stroke-width: 1.3; stroke-dasharray: 2, 5;',
+					},
+					idle: {
+						arrowhead: 'vee',
+						arrowheadStyle: 'stroke: #ccc; fill: #ccc;',
+						style: 'stroke: #ccc; fill: none; stroke-dasharray: 2, 5;',
+					}		
+				}
 			}
 		});
 
@@ -229,9 +264,41 @@ export class Inspector {
 		states.forEach(id => {
 			g.setNode(id, {
 				padding: 10,
-				labelStyle: "font-family:sans-serif;"
+				labelStyle: "font-family:sans-serif;",
+				style: "fill: #C7FFEA",
 			});
 		});
+
+		const strongEdges: Edge[] = flatten<Edge>(levelA.map(from => {
+			return Object.keys(machine[from]).map(to => {
+				return { 
+					from,
+					to,
+					type: EdgeTypes.Strong
+				};
+			});
+		}));
+
+		const weakEdges: Edge[] = flatten<Edge>(levelA.map(from => {
+			return Object.keys(machine[Route.FromAnyState] || {}).reduce((e, to) => {
+				if (machine[from][to] || from === to) {
+					// nodes are only connected weakly
+					// if a strong edge doesn't already exist.
+					return e;
+				}
+				e.push({ 
+					from,
+					to,
+					type: EdgeTypes.Weak
+				});
+				return e;
+			}, <Edge[]>[]);
+		}));
+
+		this.data = {
+			nodes: states,
+			edges: strongEdges.concat(weakEdges),
+		};
 
 		// if (machine[Route.FromAnyState]) {
 		// 	g.setNode('*', {
@@ -239,21 +306,17 @@ export class Inspector {
 		// 	})
 		// }
 
-		levelA.forEach(from => {
-			Object.keys(machine[from]).forEach(to => {
-				g.setEdge(from, to, {
-					label: "", // machine[from][to].toString(),
-					...styles.strongEdge
-				});
-				if (machine[Route.FromAnyState]) {
-					for (let t in machine[Route.FromAnyState]) {
-						if (from === t) continue;
-						g.setEdge(from, t, {
-							label: "", // machine[from][to].toString(),
-							...styles.weakEdge
-						})
-					}
-				}
+		strongEdges.forEach(({from, to}) => {
+			g.setEdge(from, to, {
+				label: "", // machine[from][to].toString(),
+				...styles.edges.Strong.idle
+			});
+		});
+
+		weakEdges.forEach(({ from, to }) => {
+			g.setEdge(from, to, {
+				label: "", // machine[from][to].toString(),
+				...styles.edges.Weak.idle
 			});
 		});
 
@@ -279,11 +342,10 @@ export class Inspector {
 		//class to make it responsive
 		.classed("svg-content-responsive", true); 
 
-		// Set some general styles
+		// Set do some positioning
 		g.nodes().forEach(function(v) {
 			var node = g.node(v);
 			node.rx = node.ry = 5;
-			node.style = "fill: #C7FFEA";
 		});
 		var zoom = this.zoom = d3.behavior.zoom().on("zoom", function() {
 			svg.select("g")
@@ -296,10 +358,26 @@ export class Inspector {
 		svg.call(zoom);
 
 		svg.call(render, g);
-		
+		this.fixArrows();
 		this.zoomToFit();
 
 		// initStaticForceLayout(<d3.Selection<SVGSVGElement, SVGSVGElement, null, undefined>>svg, this.nodes, this.links, this.fsm);
+	}
+
+	fixArrows() {
+		// This is a hack to fix the marker URL reference pathing
+		// so that it works inside an iframe.
+		this.g.edges().forEach((v) => {
+			const edge = this.g.edge(v);
+			this.svg.selectAll('.edgePath')
+				.filter(d => d === v)
+				.select('path')
+				.attr('marker-end', 'url(#' + edge.arrowheadId + ')');
+		});
+	}
+
+	findEdgeData(from: string, to: string) {
+		return this.data.edges.filter(e => e.from === from && e.to === to)[0];
 	}
 
 	zoomToFit() {
@@ -325,28 +403,100 @@ export class Inspector {
 	}
 
 	private update(event: Mata.TransitionEvent<any>) {
-		const { from, to, input } = event;
-		const { styles, g } = this;
-		g.node(from).style =  "fill: #C7FFEA";
-		g.node(to).style = "fill: #FFE46F";
-		g.edges().forEach((id) => {
-			let e = g.edge(id);
-			console.log(e);
-			if (id.v === to) {
-				g.setEdge(id.v, id.w, {
-					label: e.label,
-					...styles.activeEdge,
-				});
-			} else {
-				g.setEdge(id.v, id.w, {
-					label: e.label,					
-					arrowheadStyle: e.arrowheadStyle === styles.weakEdge.arrowheadStyle ? styles.weakEdge.arrowheadStyle : styles.strongEdge.arrowheadStyle,
-					style: e.style === styles.weakEdge.style ? styles.weakEdge.style : styles.strongEdge.style,
-				});
-			}
-		})
-		this.svg.call(this.render, g);
-		console.log(from, to, input);
+		const { from, to } = event;
+		const { svg, g } = this;
+		if (from === to) {
+			return;
+		}
+		debugger;
+		d3.select(g.node(from).elem)
+		  .select('rect')
+		  .transition()
+		  .duration(300)
+		  .style( "fill", "#C7FFEA")
+
+		d3.select(g.node(from).elem)
+			.select("rect")
+			.style("stroke", "none");		
+		
+		const dot = this.svg.select('g').append("circle");
+		const edge = d3.select(g.edge({ v: from, w: to }).elem);
+		const translator = translateAlong(<SVGPathElement>edge.select('path').node());
+		edge.selectAll('path').style('stroke', '#99ff94');
+		const arrow = svg.select('#' + edge.select('marker').attr('id'))
+			.select('path');
+		arrow.style('stroke', '#99ff94')
+			.style('fill', '#99ff94');
+			// .style('opacity', 0);
+		// edge.select('path').style('stroke', '#99ff94');
+		dot.attr('r', 2)
+			.attr('fill', '#99ff94')
+			.attr('transform', translator()(0))
+			.transition()
+			.delay(100)
+			.duration(500)		
+			.attrTween('transform', translator)
+			.attrTween('r', () => (t: number) => 2 + (10 * (t > 0.5 ? 0.5-(t-0.5) : t)))
+			.each("end", () => {
+				dot.remove();
+				edge.selectAll('path').style('stroke', '#666');
+				arrow.style('opacity', 1);
+			});
+		const rect = d3.select(g.node(to).elem)
+		  .select('rect');
+
+		rect.style("stroke", "#99ff94")		
+			.style("stroke-width", 0)
+			.transition()
+			.delay(450)
+			.duration(32)
+			.style( "fill", "#99ff94")			
+			.style("stroke-width", 5)
+		
+		rect.transition()
+		  .delay(700)		  
+		  .duration(200)
+		  .style("stroke-width", 0)		  
+		  .each("end", () => {
+			d3.select(g.node(to).elem)
+				.select('rect')
+  				.style("stroke-width", 0);			
+		  });
+
+		  // Returns an attrTween for translating along the specified path element.
+		  function translateAlong(path: SVGPathElement) {
+			var l = path.getTotalLength();
+			return function() {
+			  return function(t: number): d3.Primitive {
+				var p = path.getPointAtLength(t * l);
+				return "translate(" + p.x + "," + p.y + ")";
+			  };
+			};
+		  }
+		   
+		// g.edges().forEach((id) => {
+		// 	let e = g.edge(id);
+		// 	let data = this.findEdgeData(id.v, id.w);
+		// 	let styleKey = EdgeTypes[data.type];
+		// 	if (id.v === to) {
+		// 		g.setEdge(id.v, id.w, {
+		// 			label: e.label,
+		// 			...(<StyleLookup>styles.edges[styleKey]).active
+		// 		});
+		// 	} else {
+		// 		g.setEdge(id.v, id.w, {
+		// 			label: e.label,
+		// 			...(<StyleLookup>styles.edges[styleKey]).idle
+		// 		});
+		// 	}
+		// })
+		// const traversed = this.findEdgeData(from, to);
+		// const styleKey = EdgeTypes[traversed.type];
+		// g.setEdge(from, to, {
+		// 	...(<StyleLookup>styles.edges[styleKey]).traversed
+		// });
+		// this.svg.call(this.render, g);
+		// this.fixArrows();
 	}
 
 }
