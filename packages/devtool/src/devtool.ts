@@ -11,6 +11,29 @@ function style(target: HTMLElement, styles: { [prop: string]: number | string })
 
 export type Inner<T> = T
 
+const resizeIcon = `
+<svg width='20' 
+	 height='20' 
+	 fill="#caa" 
+	 xmlns="http://www.w3.org/2000/svg"
+	 xmlns:xlink="http://www.w3.org/1999/xlink"
+	 version="1.1" 
+	 x="0px" 
+	 y="0px" 
+	 viewBox="0 0 24 24" 
+	 style="enable-background:new 0 0 20 20;" 
+	 xml:space="preserve">
+		 <path d="M22,22h-2v-2h2V22z 
+				  M22,18h-2v-2h2V18z 
+				  M18,22h-2v-2h2V22z 
+				  M18,18h-2v-2h2V18z 
+				  M14,22h-2v-2h2V22z 
+				  M22,14h-2v-2h2V14z"/>
+	</svg>
+`;
+
+const panels: Panel[] = [];
+
 export class Panel {
 	frame: HTMLIFrameElement;
 	mask: HTMLDivElement;
@@ -20,9 +43,11 @@ export class Panel {
 	container: Inner<HTMLDivElement>;
 	toolbar: Inner<HTMLDivElement>;
 	body: Inner<HTMLBodyElement>;
-	x: number;
-	y: number;
-	prevTarget: { x: number, y: number } | null;
+	private x: number;
+	private y: number;
+	private zIndex: number;
+	private size: { width: number, height: number };
+	private prevTarget: { x: number, y: number } | null;
 
 	static styles = {
 		body: {
@@ -41,23 +66,26 @@ export class Panel {
 		frame: {
 			border: '1px solid pink',
 			position: 'absolute',
-			boxShadow: '1px 1px 2px pink',			
+			boxShadow: '1px 1px 2px pink',
+			zIndex: 98,	
 		},
 		mask: {
-			zIndex: 99,
 			position: 'absolute',
+			overflow: 'hidden',
+			zIndex: 99,
 		},
 		resizer: {
-			height: '20px',
+			height: '22px',
 			width: '20px',
 			position: 'absolute',
 			right: 0,
 			bottom: 0,
-			background: 'blue',
+			cursor: 'nwse-resize',
 		}
 	}
 
 	constructor(parent: HTMLElement, size: Size) {
+		this.size = {...size};
 		this.frame = document.createElement('iframe');
 		this.mask = document.createElement('div');
 		parent.appendChild(this.frame);
@@ -65,30 +93,51 @@ export class Panel {
 		this.innerWindow = this.frame.contentWindow;
 		this.container = this.innerWindow.document.createElement('div');
 		this.body = <Inner<HTMLBodyElement>>this.innerWindow.document.body;
-		this.body.appendChild(this.renderToolbar(this.innerWindow));
+		this.body.appendChild(this.createToolbar(this.innerWindow));
 		this.body.appendChild(this.container);
 
-		this.toolbar = this.renderToolbar(window);
+		const styleBlockPollution = document.createElement('div');
+		styleBlockPollution.innerHTML = `
+			<style>
+				.____MATA____grab {
+					cursor: -webkit-grab;
+					cursor: -moz-grab;
+					cursor: grab;
+				}
+				.____MATA____grabbing {
+					cursor: -webkit-grabbing;
+					cursor: -moz-grabbing;
+					cursor: grabbing;
+				}
+			</style>
+		`;
+		parent.appendChild(styleBlockPollution);
+
+		this.toolbar = this.createToolbar(window);
 		style(this.toolbar, {
-			opacity: '0'
+			opacity: '0',
 		});
 		this.mask.appendChild(this.toolbar);
 
 		this.resizer = window.document.createElement('div');
 		style(this.resizer, Panel.styles.resizer);
+		this.resizer.innerHTML = resizeIcon;
 		this.mask.appendChild(this.resizer);
 		
-		this.frame.width  = size.width + 'px';
-		this.frame.height = size.height + 'px';
-		this.mask.style.width = size.width + 'px';
-		this.mask.style.height = size.height + 'px';
+		this.zIndex = 99 + panels.length;
 
 		style(window.document.body, Panel.styles.body);
 		style(this.body, { ...Panel.styles.body, ...Panel.styles.BG });
-		style(this.frame, Panel.styles.frame);
-		style(this.mask, Panel.styles.mask);
+		style(this.frame, {
+			...Panel.styles.frame,
+			zIndex: this.zIndex,
+		});
+		style(this.mask, {
+			...Panel.styles.mask,
+			zIndex: this.zIndex + 1,			
+		});
 		
-		this.x = 0;
+		this.x = panels.reduce((a, b) => a + b.size.width, 0);
 		this.y = 0;
 
 		this.dragMove = this.dragMove.bind(this);
@@ -98,23 +147,39 @@ export class Panel {
 		this.onResize = null;
 		
 		this.toolbar.addEventListener('mousedown', this.startDragging(this.dragMove).bind(this));
-
 		this.resizer.addEventListener('mousedown', this.startDragging(this.dragResize).bind(this));
 
+		this.render();
+		this.resize();
+				
+		panels.push(this);
 	}
 
-	renderToolbar(context: Window | Inner<Window>) {
+	createToolbar(context: Window | Inner<Window>) {
 		const div = context.document.createElement('div');
+		div.classList.add('____MATA____grab');
 		style(div, Panel.styles.toolbar);
 		return div;
 	}
 
 	startDragging(dragHandler: (e: MouseEvent) => void):  () => void {
 		return () => {
+			panels.sort((a, b) => a.zIndex > b.zIndex ? 1 : -1).forEach((p, i) => {
+				p.zIndex = 99 + i;
+				if (p === this) return;
+				style(p.frame, { zIndex: p.zIndex });
+				style(p.mask, { zIndex: p.zIndex });
+			});
+			this.zIndex = 99 + panels.length;
 			style(this.frame, {
 				boxShadow: '0px 20px 50px lightpink',				
 				userSelect: 'none',
+				zIndex: this.zIndex
 			});
+			style(this.mask, {
+				zIndex: this.zIndex + 1
+			});
+			this.toolbar.classList.add('____MATA____grabbing');
 			window.document.body.addEventListener('mouseup', this.stopDragging(dragHandler).bind(this));
 			window.document.body.addEventListener('mousemove', dragHandler);
 		}
@@ -125,7 +190,8 @@ export class Panel {
 			style(this.frame, {
 				boxShadow: '1px 1px 2px pink',			
 			});
-			this.prevTarget = null;		
+			this.prevTarget = null;
+			this.toolbar.classList.remove('____MATA____grabbing');			
 			window.document.body.removeEventListener('mouseup', handler);
 			window.document.body.removeEventListener('mousemove', dragHandler);
 		}
@@ -134,11 +200,12 @@ export class Panel {
 
 	dragResize(e: MouseEvent) {
 		const target = { x: e.clientX, y: e.clientY };
-		const width = (target.x - this.frame.offsetLeft) + 10 + 'px';
-		const height = (target.y - this.frame.offsetTop) + 10 + 'px';
-		this.frame.width = width;
-		this.frame.height = height;
-		style(this.mask, { width, height });
+		const width = (target.x - this.frame.offsetLeft) + 10;
+		const height = (target.y - this.frame.offsetTop) + 10;
+		this.size = { width, height };
+		this.frame.width = width + 'px';
+		this.frame.height = height + 'px';
+		style(this.mask, { width: width + 'px', height: height + 'px' });
 		if (this.onResize) {
 			this.onResize();
 		}
@@ -158,15 +225,40 @@ export class Panel {
 			})
 		}
 		// hmm: setTimeout(() => {
-			style(this.frame, {
-				left: this.x + 'px',
-				top: this.y + 'px',
-			});
-			style(this.mask, {
-				left: this.x + 'px',
-				top: this.y + 'px',
-			})	
+		this.render();
 		// }, 0)
+	}
+
+	setPosition(x: number, y: number) {
+		this.x = x;
+		this.y = y;
+		this.render();
+	}
+
+	setSize(width: number, height: number) {
+		this.size = { width, height };
+		this.resize();
+		if (this.onResize) {
+			this.onResize();
+		}
+	}
+
+	resize() {
+		this.frame.width  = this.size.width + 'px';
+		this.frame.height = this.size.height + 'px';
+		this.mask.style.width = this.size.width + 'px';
+		this.mask.style.height = this.size.height + 'px';
+	}
+
+	render() {
+		style(this.frame, {
+			left: this.x + 'px',
+			top: this.y + 'px',
+		});
+		style(this.mask, {
+			left: this.x + 'px',
+			top: this.y + 'px',
+		});
 	}
 	
 }
@@ -193,9 +285,12 @@ export class Inspector {
 		nodes: string[],
 		edges: Edge[],
 	}
+	activeColor: string;
 
-	constructor(parent: HTMLElement, fsm: Mata.Automaton<any>, size: Size = { width: 400, height: 400 }) {
+	constructor(parent: HTMLElement, fsm: Mata.Automaton<any>, size?: Size) {
 		this.fsm = fsm;
+		const defaultSize = { width: 400, height: 400 };
+		size = size ? {...size} : defaultSize;
 		this.panel = new Panel(parent, { 
 			width: size.width, 
 			height: size.height + 20 
@@ -203,11 +298,11 @@ export class Inspector {
 		fsm.subscribe(this.update.bind(this));
 		this.$el = document.createElement('div');
 		this.panel.container.appendChild(this.$el);
-		this.panel.onResize = this.zoomToFit.bind(this);
 		const machine = fsm.schematic.rules;
 		const levelA = Object.keys(fsm.schematic.rules);
 		const g = this.g = new dagreD3.graphlib.Graph();
 		const render = this.render = new dagreD3.render();
+		this.activeColor = '#99ff94';
 
 		const styles = this.styles = Object.freeze({
 			edges: {
@@ -223,6 +318,7 @@ export class Inspector {
 					idle: {
 						arrowheadStyle: 'stroke: #666; fill: #666;',
 						style: 'stroke: #666; fill: none;',
+						// lineInterpolate: "basis",						
 					},
 				},
 				Weak: {
@@ -238,8 +334,9 @@ export class Inspector {
 					},
 					idle: {
 						arrowhead: 'vee',
-						arrowheadStyle: 'stroke: #ccc; fill: #ccc;',
-						style: 'stroke: #ccc; fill: none; stroke-dasharray: 2, 5;',
+						arrowheadStyle: 'stroke: #666; fill: #666;',
+						style: 'stroke: #666; fill: none; stroke-dasharray: 2, 5;',
+						// lineInterpolate: "basis",						
 					}		
 				}
 			}
@@ -270,13 +367,17 @@ export class Inspector {
 		});
 
 		const strongEdges: Edge[] = flatten<Edge>(levelA.map(from => {
-			return Object.keys(machine[from]).map(to => {
-				return { 
+			return Object.keys(machine[from]).reduce((e, to) => {
+				if (machine[from][to] === Route.Never) {
+					return e;
+				}
+				e.push({ 
 					from,
 					to,
 					type: EdgeTypes.Strong
-				};
-			});
+				});
+				return e;
+			}, <Edge[]>[]);
 		}));
 
 		const weakEdges: Edge[] = flatten<Edge>(levelA.map(from => {
@@ -359,8 +460,29 @@ export class Inspector {
 
 		svg.call(render, g);
 		this.fixArrows();
-		this.zoomToFit();
 
+		if (size === defaultSize) {
+			const auto = states.length * 100;
+			const rect = (<SVGGraphicsElement>this.svg.select('g').node()).getBBox();
+			const size = {
+				width: rect.width < rect.height ? auto * rect.width / rect.height : auto,
+				height: rect.height < rect.width ? auto * rect.width / rect.height : auto,
+			}
+			this.panel.setSize(
+				Math.min(
+					rect.width < rect.height ? size.width + 40 : size.width, 
+					window.innerWidth
+				), 
+				Math.min(
+					rect.height < rect.width ? size.height + 40 : size.height, 
+					window.innerHeight
+				)
+			);
+		}
+
+		this.zoomToFit();		
+		this.panel.onResize = this.zoomToFit.bind(this);
+		
 		// initStaticForceLayout(<d3.Selection<SVGSVGElement, SVGSVGElement, null, undefined>>svg, this.nodes, this.links, this.fsm);
 	}
 
@@ -408,7 +530,6 @@ export class Inspector {
 		if (from === to) {
 			return;
 		}
-		debugger;
 		d3.select(g.node(from).elem)
 		  .select('rect')
 		  .transition()
@@ -419,38 +540,58 @@ export class Inspector {
 			.select("rect")
 			.style("stroke", "none");		
 		
-		const dot = this.svg.select('g').append("circle");
-		const edge = d3.select(g.edge({ v: from, w: to }).elem);
-		const translator = translateAlong(<SVGPathElement>edge.select('path').node());
-		edge.selectAll('path').style('stroke', '#99ff94');
-		const arrow = svg.select('#' + edge.select('marker').attr('id'))
-			.select('path');
-		arrow.style('stroke', '#99ff94')
-			.style('fill', '#99ff94');
-			// .style('opacity', 0);
-		// edge.select('path').style('stroke', '#99ff94');
-		dot.attr('r', 2)
-			.attr('fill', '#99ff94')
-			.attr('transform', translator()(0))
-			.transition()
-			.delay(100)
-			.duration(500)		
-			.attrTween('transform', translator)
-			.attrTween('r', () => (t: number) => 2 + (10 * (t > 0.5 ? 0.5-(t-0.5) : t)))
-			.each("end", () => {
-				dot.remove();
-				edge.selectAll('path').style('stroke', '#666');
-				arrow.style('opacity', 1);
-			});
+		const graphEdge = g.edge({ v: from, w: to });
+		const hasValidRoute = !!graphEdge;
+
+		if (hasValidRoute) {
+			const dot = this.svg.select('g').append("circle");
+			const edge = d3.select(graphEdge.elem);
+			const translator = translateAlong(<SVGPathElement>edge.select('path').node());
+			edge.selectAll('path').style('stroke', this.activeColor)
+				.transition()
+				.delay(100)
+				.duration(500)
+				.style('stroke', '#99ff94');
+			const arrow = svg.select('#' + edge.select('marker').attr('id'))
+				.select('path');
+			arrow.style('stroke', this.activeColor)
+				.style('fill', this.activeColor)
+				.transition()
+				.delay(100)
+				.duration(500)
+				.style('stroke', '#99ff94')
+				.style('fill', '#99ff94');
+				// .style('opacity', 0);
+			// edge.select('path').style('stroke', '#99ff94');
+			dot.attr('r', 2)
+				.attr('fill', this.activeColor)
+				.attr('transform', translator()(0))
+				.transition()
+				.delay(100)
+				.duration(500)		
+				.attrTween('transform', translator)
+				.attrTween('r', () => (t: number) => 2 + (10 * (t > 0.5 ? 0.5-(t-0.5) : t)))
+				.attr('fill', '#99ff94')				
+				.each("end", () => {
+					dot.remove();
+					edge.selectAll('path').style('stroke', '#666');
+					arrow.style('opacity', 1);
+				});
+		} else {
+
+		}
+
+		this.activeColor = hasValidRoute ? '#99ff94' : '#f00';			
+		
 		const rect = d3.select(g.node(to).elem)
 		  .select('rect');
 
-		rect.style("stroke", "#99ff94")		
+		rect.style("stroke", this.activeColor)		
 			.style("stroke-width", 0)
 			.transition()
 			.delay(450)
 			.duration(32)
-			.style( "fill", "#99ff94")			
+			.style( "fill", this.activeColor)			
 			.style("stroke-width", 5)
 		
 		rect.transition()
