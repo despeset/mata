@@ -96,8 +96,8 @@ export class Panel {
 		this.body.appendChild(this.createToolbar(this.innerWindow));
 		this.body.appendChild(this.container);
 
-		const styleBlockPollution = document.createElement('div');
-		styleBlockPollution.innerHTML = `
+		const polluteParentCSS = document.createElement('div');
+		polluteParentCSS.innerHTML = `
 			<style>
 				.____MATA____grab {
 					cursor: -webkit-grab;
@@ -111,7 +111,18 @@ export class Panel {
 				}
 			</style>
 		`;
-		parent.appendChild(styleBlockPollution);
+		parent.appendChild(polluteParentCSS);
+
+		const innerCSS = document.createElement('div');
+		innerCSS.innerHTML = `
+			<style>
+				body > div {
+					width: 100%;
+					height: 100%;
+				}
+			</style>
+		`;
+		this.body.appendChild(innerCSS);
 
 		this.toolbar = this.createToolbar(window);
 		style(this.toolbar, {
@@ -273,12 +284,47 @@ export type StyleDeclaration = { [key: string]: string };
 export type StyleLookup = { [key: string]: StyleDeclaration | StyleLookup };
 
 export class Inspector {
+	panel: Panel;
+	visualizer: Visualizer;
+	constructor(parent: HTMLElement, fsm: Mata.Automaton<any>, size?: Size) {
+		const defaultSize = { width: 400, height: 400 };
+		size = size ? {...size} : defaultSize;
+		const panel = this.panel = new Panel(parent, { 
+			width: size.width, 
+			height: size.height + 20 
+		});
+		const visualizer = this.visualizer = new Visualizer(panel.container, fsm);
+		if (size === defaultSize) {
+			const auto = Object.keys(fsm.states).length * 100;
+			const rect = (<SVGGraphicsElement>visualizer.svg.select('g').node()).getBBox();
+			const size = {
+				width: rect.width < rect.height ? auto * rect.width / rect.height : auto,
+				height: rect.height < rect.width ? auto * rect.width / rect.height : auto,
+			}
+			panel.setSize(
+				Math.min(
+					rect.width < rect.height ? size.width + 40 : size.width, 
+					window.innerWidth
+				), 
+				Math.min(
+					rect.height < rect.width ? size.height + 40 : size.height, 
+					window.innerHeight
+				)
+			);
+			panel.onResize = visualizer.zoomToFit.bind(visualizer);
+			visualizer.zoomToFit();		
+		}
+	}
+
+}
+
+export class Visualizer {
 	fsm: Mata.Automaton<any>;
 	svg: d3.Selection<SVGSVGElement>;
 	$el: HTMLElement;
+	$parent: HTMLElement;
 	g: dagreD3.graphlib.Graph;
 	render: dagreD3.Render;
-	panel: Panel;
 	zoom: d3.behavior.Zoom<{}>;
 	styles: StyleLookup;
 	data: {
@@ -287,17 +333,15 @@ export class Inspector {
 	}
 	activeColor: string;
 
-	constructor(parent: HTMLElement, fsm: Mata.Automaton<any>, size?: Size) {
+	constructor($parent: HTMLElement, fsm: Mata.Automaton<any>) {
+
 		this.fsm = fsm;
-		const defaultSize = { width: 400, height: 400 };
-		size = size ? {...size} : defaultSize;
-		this.panel = new Panel(parent, { 
-			width: size.width, 
-			height: size.height + 20 
-		});
 		fsm.subscribe(this.update.bind(this));
+
 		this.$el = document.createElement('div');
-		this.panel.container.appendChild(this.$el);
+		this.$parent = $parent;
+		$parent.appendChild(this.$el);
+
 		const machine = fsm.schematic.rules;
 		const levelA = Object.keys(fsm.schematic.rules);
 		const g = this.g = new dagreD3.graphlib.Graph();
@@ -438,8 +482,8 @@ export class Inspector {
 		//responsive SVG needs these 2 attributes and no width and height attr
 		// .attr("preserveAspectRatio", "xMinYMin meet")
 		// .attr("viewBox", "0 0 1200 800")
-		.attr("width", size.width)
-		.attr("height", size.height)
+		.attr("width", $parent.getBoundingClientRect().width)
+		.attr("height", $parent.getBoundingClientRect().height)
 		//class to make it responsive
 		.classed("svg-content-responsive", true); 
 
@@ -461,28 +505,7 @@ export class Inspector {
 		svg.call(render, g);
 		this.fixArrows();
 
-		if (size === defaultSize) {
-			const auto = states.length * 100;
-			const rect = (<SVGGraphicsElement>this.svg.select('g').node()).getBBox();
-			const size = {
-				width: rect.width < rect.height ? auto * rect.width / rect.height : auto,
-				height: rect.height < rect.width ? auto * rect.width / rect.height : auto,
-			}
-			this.panel.setSize(
-				Math.min(
-					rect.width < rect.height ? size.width + 40 : size.width, 
-					window.innerWidth
-				), 
-				Math.min(
-					rect.height < rect.width ? size.height + 40 : size.height, 
-					window.innerHeight
-				)
-			);
-		}
-
-		this.zoomToFit();		
-		this.panel.onResize = this.zoomToFit.bind(this);
-		
+		this.zoomToFit();				
 		// initStaticForceLayout(<d3.Selection<SVGSVGElement, SVGSVGElement, null, undefined>>svg, this.nodes, this.links, this.fsm);
 	}
 
@@ -504,16 +527,17 @@ export class Inspector {
 
 	zoomToFit() {
 		const { g, svg, zoom } = this;
-		svg.attr('width', this.panel.frame.width);
-		svg.attr('height', parseInt(this.panel.frame.height) - 20 + 'px');
+		let { width, height } = this.$parent.getBoundingClientRect();
+		svg.attr('width', width);
+		svg.attr('height', height - 20);
 		// Center the dag
 		let zoomScale = 1;
 		// Get Dagre Graph dimensions
 		let graphWidth = g.graph().width;
 		let graphHeight = g.graph().height + 0;
 		// Get SVG dimensions
-		let width = parseInt(svg.style("width").replace(/px/, ""));
-		let height = parseInt(svg.style("height").replace(/px/, ""));
+		width = parseInt(svg.style("width").replace(/px/, ""));
+		height = parseInt(svg.style("height").replace(/px/, ""));
 
 		// Calculate applicable scale for zoom
 		zoomScale = Math.max( Math.min(width / graphWidth, height / graphHeight), 0.5);
