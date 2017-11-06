@@ -47,8 +47,6 @@ const { Route } = Mata;
 
 // new Inspector(document.body, game);
 
-
-
 interface SinkControls {
     tap: number
     waterVolume: number
@@ -110,8 +108,7 @@ setInterval(() => {
     }
     sink.next(queue[i]);
     i++;
-
-}, 500);
+}, 800);
 
 new Inspector(document.body, sink);
 
