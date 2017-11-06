@@ -96,11 +96,18 @@ export class Schematic<T> {
 
     constructor (rules: Ruleset<T>) {
         this.rules = rules;
-        this.states = Object.keys(this.rules).reduce((lookup, state) => {
-            lookup[state] = state;
-            Object.keys(rules[state]).forEach(state => lookup[state] = state);
-            return lookup;
-        }, <ValidStates>{});
+        this.states = Object.keys(this.rules)
+            .reduce((lookup, state) => {
+                lookup[state] = state;
+                Object.keys(rules[state]).forEach(state => lookup[state] = state);
+                return lookup;
+            }, <ValidStates>{});
+        this.states = Object.keys(this.rules[Route.FromAnyState])
+            .reduce((lookup, state) => {
+                lookup[state] = state;
+                return lookup
+            }, this.states);
+        this.states = Object.freeze(this.states);
     }
 
     createAutomaton (state: State) {

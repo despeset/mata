@@ -219,11 +219,18 @@ describe("Discrete behavior", () => {
         A: {
             B: Route.Continue,
             C: () => ShouldNeverBeCalled = false,
+        },
+        [Route.FromAnyState]: {
+            D: Route.Never
         }
     });
 
     test('Supports terminal states which only appear at the second level', () => {
         expect(MutliTerminal.states.B).toBe('B');            
+    })
+
+    test('Supports terminal states which only appear as global routes', () => {
+        expect(MutliTerminal.states.D).toBe('D');            
     })
         
     test('Transitions to the first matching state', () => {
