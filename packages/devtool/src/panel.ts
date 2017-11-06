@@ -9,7 +9,7 @@ export type Inner<T> = T
 const resizeIcon = `
 <svg width='20' 
 	 height='20' 
-	 fill="#caa" 
+	 fill="#caa"
 	 xmlns="http://www.w3.org/2000/svg"
 	 xmlns:xlink="http://www.w3.org/1999/xlink"
 	 version="1.1" 
@@ -66,8 +66,9 @@ export class Panel {
 		},
 		mask: {
 			position: 'absolute',
-			overflow: 'hidden',
-			zIndex: 99,
+			// overflow: 'hidden',
+            height: '20px',
+            zIndex: 99,
 		},
 		resizer: {
 			height: '22px',
@@ -183,8 +184,12 @@ export class Panel {
 				zIndex: this.zIndex
 			});
 			style(this.mask, {
-				zIndex: this.zIndex + 1
-			});
+                zIndex: this.zIndex + 1,
+                height: this.size.height + 'px',
+            });
+            style(this.resizer, {
+                bottom: 0 
+            });
 			this.toolbar.classList.add('____MATA____grabbing');
 			window.document.body.addEventListener('mouseup', this.stopDragging(dragHandler).bind(this));
 			window.document.body.addEventListener('mousemove', dragHandler);
@@ -194,8 +199,14 @@ export class Panel {
 	stopDragging(dragHandler: (e: MouseEvent) => void): () => void {
 		const handler = () => {			
 			style(this.frame, {
-				boxShadow: '1px 1px 2px pink',			
-			});
+				boxShadow: '1px 1px 2px pink',		
+            });
+            style(this.mask, {
+                height: '20px',
+            });
+            style(this.resizer, {
+                bottom: (-(this.size.height - 20)) + 'px'
+            });
 			this.prevTarget = null;
 			this.toolbar.classList.remove('____MATA____grabbing');			
 			window.document.body.removeEventListener('mouseup', handler);

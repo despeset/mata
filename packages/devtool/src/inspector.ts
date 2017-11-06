@@ -4,7 +4,8 @@ import { Visualizer, Size } from './visualizer';
 
 export class Inspector {
 	panel: Panel;
-	visualizer: Visualizer;
+    visualizer: Visualizer;
+    scale: number;
 	constructor(parent: HTMLElement, fsm: Mata.Automaton<any>, size?: Size) {
 		const defaultSize = { width: 400, height: 400 };
 		size = size ? {...size} : defaultSize;
@@ -30,8 +31,19 @@ export class Inspector {
 					window.innerHeight
 				)
 			);
-			panel.onResize = visualizer.zoomToFit.bind(visualizer);
-			visualizer.zoomToFit();		
+            visualizer.sizeSVG();
+            visualizer.zoomToFit();
+            this.scale = visualizer.zoom.scale();
+            
+			panel.onResize = () => {
+                visualizer.sizeSVG();
+                if (visualizer.zoom.scale() === this.scale) {
+                    visualizer.zoomToFit();
+                    this.scale = visualizer.zoom.scale();                    
+                } else {
+					visualizer.center();
+				}
+            }
 		}
 	}
 
